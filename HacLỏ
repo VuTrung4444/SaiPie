@@ -1038,12 +1038,11 @@ getgenv().AttackLoopActive = false
 getgenv().PlayerDead = false
 
 local function UpdateHRP(char)
-    task.wait(0.1)
+    task.wait(0.2)
     getgenv().AttackLoopActive = false
     getgenv().PlayerDead = false
     hrp = char:WaitForChild("HumanoidRootPart")
 
-    -- Theo dõi máu nhân vật
     local humanoid = char:WaitForChild("Humanoid")
     humanoid.HealthChanged:Connect(function(health)
         if health <= 0 and not getgenv().PlayerDead then
@@ -1054,7 +1053,6 @@ local function UpdateHRP(char)
 end
 player.CharacterAdded:Connect(UpdateHRP)
 
--- Khởi tạo ngay nếu character đã tồn tại
 if player.Character then
     UpdateHRP(player.Character)
 end
@@ -1102,34 +1100,24 @@ local function GetNearestNPC()
 
     local target, humanoid = nil, nil
     local closestDistance = math.huge
-    local bestScore = -math.huge
 
     for _, npc in ipairs(npcsFolder:GetChildren()) do
+        local h = npc:FindFirstChild("Humanoid")
+        local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
+        if not (h and h.Health > 0 and primaryPart) then continue end
+
+        local distance = (hrp.Position - primaryPart.Position).Magnitude
+        if distance > 2000 then continue end
+
         if hasFilter then
             local score = FuzzyScore(filter, npc.Name)
             if score < 0 then continue end
-            local h = npc:FindFirstChild("Humanoid")
-            local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
-            if not (h and h.Health > 0 and primaryPart) then continue end
-            local distance = (hrp.Position - primaryPart.Position).Magnitude
-            if distance > 2000 then continue end
-            if score > bestScore or (score == bestScore and distance < closestDistance) then
-                bestScore = score
-                closestDistance = distance
-                target = npc
-                humanoid = h
-            end
-        else
-            local h = npc:FindFirstChild("Humanoid")
-            local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
-            if h and h.Health > 0 and primaryPart then
-                local distance = (hrp.Position - primaryPart.Position).Magnitude
-                if distance < closestDistance and distance <= 2000 then
-                    closestDistance = distance
-                    target = npc
-                    humanoid = h
-                end
-            end
+        end
+
+        if distance < closestDistance then
+            closestDistance = distance
+            target = npc
+            humanoid = h
         end
     end
     return target, humanoid
@@ -1213,10 +1201,19 @@ local function HoverOnNPC()
         task.wait(0.01)
     end
 
-    if getgenv().AutoNPC then
-        HoldHover()
-    else
+    if not getgenv().AutoNPC then
         DisableHover(hrp)
+        return
+    end
+
+    -- Nếu có filter → giữ hover tại chỗ, không tìm target khác
+    if getgenv().NPCFilter ~= "" then
+        HoldHover()
+        while getgenv().AutoNPC and getgenv().NPCFilter ~= "" and not getgenv().PlayerDead do
+            task.wait(0.5)
+        end
+    else
+        HoldHover()
     end
 end
 
@@ -1224,7 +1221,6 @@ task.spawn(function()
     while true do
         if getgenv().AutoNPC then
             if getgenv().PlayerDead then
-                -- Chờ 5 giây sau khi chết rồi thử lại
                 task.wait(3)
             elseif hrp then
                 HoverOnNPC()
