@@ -1254,7 +1254,7 @@ Auto:AddToggle({
 })
 
 Auto:AddTextbox({
-    Name = "NPC Filter",
+    Name = "Đánh theo tên",
     Default = "",
     Placeholder = "Nhập tên NPC (vd: thie → Thief)",
     Callback = function(value)
@@ -1287,13 +1287,13 @@ task.spawn(function()
                 for _, keyCode in ipairs(keys) do
                     if not getgenv().AutoSkill then break end
                     SendKey(keyCode)
-                    task.wait(1)
+                    task.wait(0.5)
                 end
             else
-                task.wait(0.5)
+                task.wait(0.2)
             end
         else
-            task.wait(0.5)
+            task.wait(0.2)
         end
     end
 end)
