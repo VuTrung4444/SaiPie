@@ -1113,7 +1113,6 @@ local function GetNearestNPC()
             if not (h and h.Health > 0 and primaryPart) then continue end
             local distance = (hrp.Position - primaryPart.Position).Magnitude
             if distance > 2000 then continue end
-            -- Nếu score bằng nhau thì ưu tiên gần hơn
             if score > bestScore or (score == bestScore and distance < closestDistance) then
                 bestScore = score
                 closestDistance = distance
