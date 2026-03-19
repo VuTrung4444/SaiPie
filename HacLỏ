@@ -1102,18 +1102,20 @@ local function GetNearestNPC()
 
     local target, humanoid = nil, nil
     local closestDistance = math.huge
+    local bestScore = -math.huge
 
     for _, npc in ipairs(npcsFolder:GetChildren()) do
         if hasFilter then
             local score = FuzzyScore(filter, npc.Name)
-            if score < 0 then continue end -- Không khớp thì bỏ qua
+            if score < 0 then continue end
             local h = npc:FindFirstChild("Humanoid")
             local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
             if not (h and h.Health > 0 and primaryPart) then continue end
             local distance = (hrp.Position - primaryPart.Position).Magnitude
             if distance > 2000 then continue end
-            -- Ưu tiên khoảng cách gần nhất, score chỉ dùng để lọc
-            if distance < closestDistance then
+            -- Nếu score bằng nhau thì ưu tiên gần hơn
+            if score > bestScore or (score == bestScore and distance < closestDistance) then
+                bestScore = score
                 closestDistance = distance
                 target = npc
                 humanoid = h
