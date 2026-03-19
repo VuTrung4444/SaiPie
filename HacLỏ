@@ -1038,7 +1038,7 @@ getgenv().AttackLoopActive = false
 getgenv().PlayerDead = false
 
 local function UpdateHRP(char)
-    task.wait(0.2)
+    task.wait(0.1)
     getgenv().AttackLoopActive = false
     getgenv().PlayerDead = false
     hrp = char:WaitForChild("HumanoidRootPart")
