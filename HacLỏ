@@ -1193,7 +1193,7 @@ Auto:AddToggle({
 })
 
 Auto:AddTextbox({
-    Name = "NPC Filter",
+    Name = "Đánh chọn lọc",
     Default = "",
     Placeholder = "Nhập tên NPC (vd: thie → Thief)",
     Callback = function(value)
