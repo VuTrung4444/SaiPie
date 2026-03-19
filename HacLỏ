@@ -1275,25 +1275,41 @@ local function SendKey(keyCode)
     VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
 end
 
+local function HasNearbyMob(maxDistance)
+    local hrp = game:GetService("Players").LocalPlayer.Character
+        and game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return false end
+    local npcsFolder = workspace:FindFirstChild("NPCs")
+    if not npcsFolder then return false end
+    for _, npc in ipairs(npcsFolder:GetChildren()) do
+        local h = npc:FindFirstChild("Humanoid")
+        local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
+        if h and h.Health > 0 and primaryPart then
+            if (hrp.Position - primaryPart.Position).Magnitude <= maxDistance then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 task.spawn(function()
     while true do
-        if getgenv().AutoSkill then
-            local keys = {}
-            if getgenv().UseZ then table.insert(keys, Enum.KeyCode.Z) end
-            if getgenv().UseX then table.insert(keys, Enum.KeyCode.X) end
-            if getgenv().UseC then table.insert(keys, Enum.KeyCode.C) end
+        task.wait(1)
+        if not getgenv().AutoSkill then continue end
+        if not HasNearbyMob(1000) then continue end
 
-            if #keys > 0 then
-                for _, keyCode in ipairs(keys) do
-                    if not getgenv().AutoSkill then break end
-                    SendKey(keyCode)
-                    task.wait(0.5)
-                end
-            else
-                task.wait(0.2)
-            end
-        else
-            task.wait(0.2)
+        local keys = {}
+        if getgenv().UseZ then table.insert(keys, Enum.KeyCode.Z) end
+        if getgenv().UseX then table.insert(keys, Enum.KeyCode.X) end
+        if getgenv().UseC then table.insert(keys, Enum.KeyCode.C) end
+        if #keys == 0 then continue end
+
+        for _, keyCode in ipairs(keys) do
+            if not getgenv().AutoSkill then break end
+            if not HasNearbyMob(1000) then break end
+            SendKey(keyCode)
+            task.wait(0.1)
         end
     end
 end)
@@ -1305,7 +1321,6 @@ Auto:AddToggle({
         getgenv().AutoSkill = value
     end
 })
-
 Auto:AddToggle({
     Name = "Skill Z",
     Default = false,
@@ -1313,7 +1328,6 @@ Auto:AddToggle({
         getgenv().UseZ = value
     end
 })
-
 Auto:AddToggle({
     Name = "Skill X",
     Default = false,
@@ -1321,7 +1335,6 @@ Auto:AddToggle({
         getgenv().UseX = value
     end
 })
-
 Auto:AddToggle({
     Name = "Skill C",
     Default = false,
