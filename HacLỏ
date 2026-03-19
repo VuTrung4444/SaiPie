@@ -1067,6 +1067,29 @@ local function HoldHover()
     end
 end
 
+local function StartAttackLoop(humanoid, target)
+    task.spawn(function()
+        while getgenv().AutoNPC and humanoid and humanoid.Health > 0 do
+            local primaryPart = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
+            if primaryPart and (hrp.Position - primaryPart.Position).Magnitude <= 30 then
+                game:GetService("ReplicatedStorage")
+                    :WaitForChild("CombatSystem")
+                    :WaitForChild("Remotes")
+                    :WaitForChild("RequestHit")
+                    :FireServer()
+
+                local args = { 1 }
+                game:GetService("ReplicatedStorage")
+                    :WaitForChild("AbilitySystem")
+                    :WaitForChild("Remotes")
+                    :WaitForChild("RequestAbility")
+                    :FireServer(unpack(args))
+            end
+            task.wait(0.5)
+        end
+    end)
+end
+
 local function HoverOnNPC()
     if not hrp then return end
     local target, humanoid = GetNearestNPC()
@@ -1092,6 +1115,10 @@ local function HoverOnNPC()
 
     EnableHover(hrp)
     local bp = hrp:FindFirstChild("BodyPosition")
+
+    if humanoid and humanoid.Health > 0 then
+        StartAttackLoop(humanoid, target)
+    end
 
     while getgenv().AutoNPC and humanoid and humanoid.Health > 0 do
         primaryPart = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
@@ -1146,6 +1173,8 @@ Auto:AddTextbox({
         getgenv().NPCFilter = value or ""
     end
 })
+
+
 
 if placeId == mainMenuPlaceID then
 	local SelectedTown = nil
