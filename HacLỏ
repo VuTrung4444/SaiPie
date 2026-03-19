@@ -317,7 +317,66 @@ Ect:AddToggle({
     end
 })
 
+Ect:AddButton({
+    Name = "Dịch chuyển đến cổng",
+    Callback = function()
+        local player = game:GetService("Players").LocalPlayer
+        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 
+        if not hrp then
+            return
+        end
+
+        -- Quét toàn workspace tìm Part có tên dạng "Portal_" gần nhất
+        local nearestPortal = nil
+        local nearestDistance = math.huge
+
+        local function ScanForPortal(parent)
+            for _, obj in ipairs(parent:GetChildren()) do
+                if obj:IsA("BasePart") and obj.Name:match("^Portal_") then
+                    local distance = (hrp.Position - obj.Position).Magnitude
+                    if distance < nearestDistance and distance <= 5000 then
+                        nearestDistance = distance
+                        nearestPortal = obj
+                    end
+                end
+                -- Đệ quy quét con
+                if #obj:GetChildren() > 0 then
+                    ScanForPortal(obj)
+                end
+            end
+        end
+
+        ScanForPortal(workspace)
+
+        if not nearestPortal then
+            warn("Không tìm thấy Portal nào trong phạm vi 5000 đơn vị!")
+            return
+        end
+
+        -- Teleport tới portal
+        hrp.CFrame = nearestPortal.CFrame + Vector3.new(0, 3, 0)
+
+        task.spawn(function()
+            while true do
+                task.wait(0.1)
+                if not hrp or not hrp.Parent then break end
+                local distance = (hrp.Position - nearestPortal.Position).Magnitude
+                if distance <= 5 then
+                    task.wait(0.5)
+                    local prompt = nearestPortal:FindFirstChildWhichIsA("ProximityPrompt")
+                        or nearestPortal.Parent:FindFirstChildWhichIsA("ProximityPrompt", true)
+                    if prompt then
+                        fireproximityprompt(prompt)
+                    else
+                        warn("Không tìm thấy ProximityPrompt!")
+                    end
+                    break
+                end
+            end
+        end)
+    end
+})
 
 Ect:AddButton({
     Name = "Fly",
@@ -1193,7 +1252,7 @@ Auto:AddToggle({
 })
 
 Auto:AddTextbox({
-    Name = "Đánh chọn lọc",
+    Name = "NPC Filter",
     Default = "",
     Placeholder = "Nhập tên NPC (vd: thie → Thief)",
     Callback = function(value)
