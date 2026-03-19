@@ -975,12 +975,30 @@ local player = Players.LocalPlayer
 local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 getgenv().AutoNPC = false
 getgenv().NPCFilter = ""
+getgenv().AttackLoopActive = false
+getgenv().PlayerDead = false
 
 local function UpdateHRP(char)
     task.wait(0.2)
+    getgenv().AttackLoopActive = false
+    getgenv().PlayerDead = false
     hrp = char:WaitForChild("HumanoidRootPart")
+
+    -- Theo dõi máu nhân vật
+    local humanoid = char:WaitForChild("Humanoid")
+    humanoid.HealthChanged:Connect(function(health)
+        if health <= 0 and not getgenv().PlayerDead then
+            getgenv().PlayerDead = true
+            getgenv().AttackLoopActive = false
+        end
+    end)
 end
 player.CharacterAdded:Connect(UpdateHRP)
+
+-- Khởi tạo ngay nếu character đã tồn tại
+if player.Character then
+    UpdateHRP(player.Character)
+end
 
 local function EnableHover(rootPart)
     if not rootPart:FindFirstChild("BodyPosition") then
@@ -1068,10 +1086,11 @@ local function HoldHover()
 end
 
 local function StartAttackLoop(humanoid, target)
+    getgenv().AttackLoopActive = true
     task.spawn(function()
-        while getgenv().AutoNPC and humanoid and humanoid.Health > 0 do
+        while getgenv().AutoNPC and getgenv().AttackLoopActive and not getgenv().PlayerDead and humanoid and humanoid.Health > 0 do
             local primaryPart = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
-            if primaryPart and (hrp.Position - primaryPart.Position).Magnitude <= 30 then
+            if primaryPart and hrp and (hrp.Position - primaryPart.Position).Magnitude <= 50 then
                 game:GetService("ReplicatedStorage")
                     :WaitForChild("CombatSystem")
                     :WaitForChild("Remotes")
@@ -1087,11 +1106,12 @@ local function StartAttackLoop(humanoid, target)
             end
             task.wait(0.5)
         end
+        getgenv().AttackLoopActive = false
     end)
 end
 
 local function HoverOnNPC()
-    if not hrp then return end
+    if not hrp or getgenv().PlayerDead then return end
     local target, humanoid = GetNearestNPC()
 
     if not target then
@@ -1120,7 +1140,8 @@ local function HoverOnNPC()
         StartAttackLoop(humanoid, target)
     end
 
-    while getgenv().AutoNPC and humanoid and humanoid.Health > 0 do
+    while getgenv().AutoNPC and not getgenv().PlayerDead and humanoid and humanoid.Health > 0 do
+        if not hrp then break end
         primaryPart = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
         if not primaryPart then break end
         local distance = (hrp.Position - primaryPart.Position).Magnitude
@@ -1143,10 +1164,15 @@ end
 task.spawn(function()
     while true do
         if getgenv().AutoNPC then
-            if hrp then
+            if getgenv().PlayerDead then
+                -- Chờ 5 giây sau khi chết rồi thử lại
+                task.wait(3)
+            elseif hrp then
                 HoverOnNPC()
+                task.wait(1)
+            else
+                task.wait(0.5)
             end
-            task.wait(1)
         else
             DisableHover(hrp)
             task.wait(0.5)
@@ -1160,6 +1186,7 @@ Auto:AddToggle({
     Callback = function(value)
         getgenv().AutoNPC = value
         if not value and hrp then
+            getgenv().AttackLoopActive = false
             DisableHover(hrp)
         end
     end
