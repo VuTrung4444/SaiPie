@@ -1102,19 +1102,18 @@ local function GetNearestNPC()
 
     local target, humanoid = nil, nil
     local closestDistance = math.huge
-    local bestScore = -math.huge
 
     for _, npc in ipairs(npcsFolder:GetChildren()) do
         if hasFilter then
             local score = FuzzyScore(filter, npc.Name)
-            if score < 0 then continue end
+            if score < 0 then continue end -- Không khớp thì bỏ qua
             local h = npc:FindFirstChild("Humanoid")
             local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
             if not (h and h.Health > 0 and primaryPart) then continue end
             local distance = (hrp.Position - primaryPart.Position).Magnitude
             if distance > 2000 then continue end
-            if score > bestScore or (score == bestScore and distance < closestDistance) then
-                bestScore = score
+            -- Ưu tiên khoảng cách gần nhất, score chỉ dùng để lọc
+            if distance < closestDistance then
                 closestDistance = distance
                 target = npc
                 humanoid = h
@@ -1260,7 +1259,73 @@ Auto:AddTextbox({
     end
 })
 
+getgenv().AutoSkill = false
+getgenv().UseZ = false
+getgenv().UseX = false
+getgenv().UseC = false
 
+local VirtualInputManager = game:GetService("VirtualInputManager")
+
+local function SendKey(keyCode)
+    VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+    task.wait(0.05)
+    VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+end
+
+task.spawn(function()
+    while true do
+        if getgenv().AutoSkill then
+            local keys = {}
+            if getgenv().UseZ then table.insert(keys, Enum.KeyCode.Z) end
+            if getgenv().UseX then table.insert(keys, Enum.KeyCode.X) end
+            if getgenv().UseC then table.insert(keys, Enum.KeyCode.C) end
+
+            if #keys > 0 then
+                for _, keyCode in ipairs(keys) do
+                    if not getgenv().AutoSkill then break end
+                    SendKey(keyCode)
+                    task.wait(1)
+                end
+            else
+                task.wait(0.5)
+            end
+        else
+            task.wait(0.5)
+        end
+    end
+end)
+
+Auto:AddToggle({
+    Name = "Auto Skill",
+    Default = false,
+    Callback = function(value)
+        getgenv().AutoSkill = value
+    end
+})
+
+Auto:AddToggle({
+    Name = "Skill Z",
+    Default = false,
+    Callback = function(value)
+        getgenv().UseZ = value
+    end
+})
+
+Auto:AddToggle({
+    Name = "Skill X",
+    Default = false,
+    Callback = function(value)
+        getgenv().UseX = value
+    end
+})
+
+Auto:AddToggle({
+    Name = "Skill C",
+    Default = false,
+    Callback = function(value)
+        getgenv().UseC = value
+    end
+})
 
 if placeId == mainMenuPlaceID then
 	local SelectedTown = nil
