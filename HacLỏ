@@ -1034,12 +1034,10 @@ local player = Players.LocalPlayer
 local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 getgenv().AutoNPC = false
 getgenv().NPCFilter = ""
-getgenv().AttackLoopActive = false
 getgenv().PlayerDead = false
 
 local function UpdateHRP(char)
-    task.wait(0.2)
-    getgenv().AttackLoopActive = false
+    task.wait(0.1)
     getgenv().PlayerDead = false
     hrp = char:WaitForChild("HumanoidRootPart")
 
@@ -1047,7 +1045,6 @@ local function UpdateHRP(char)
     humanoid.HealthChanged:Connect(function(health)
         if health <= 0 and not getgenv().PlayerDead then
             getgenv().PlayerDead = true
-            getgenv().AttackLoopActive = false
         end
     end)
 end
@@ -1090,13 +1087,14 @@ local function FuzzyScore(query, name)
     return score
 end
 
-local function GetNearestNPC()
+local function GetNearestNPC(maxDistance)
     if not hrp then return nil, nil end
     local npcsFolder = workspace:FindFirstChild("NPCs")
     if not npcsFolder then return nil, nil end
 
     local filter = getgenv().NPCFilter or ""
     local hasFilter = filter ~= ""
+    maxDistance = maxDistance or 2000
 
     local target, humanoid = nil, nil
     local closestDistance = math.huge
@@ -1107,7 +1105,7 @@ local function GetNearestNPC()
         if not (h and h.Health > 0 and primaryPart) then continue end
 
         local distance = (hrp.Position - primaryPart.Position).Magnitude
-        if distance > 2000 then continue end
+        if distance > maxDistance then continue end
 
         if hasFilter then
             local score = FuzzyScore(filter, npc.Name)
@@ -1132,28 +1130,35 @@ local function HoldHover()
     end
 end
 
-local function StartAttackLoop(humanoid, target)
-    getgenv().AttackLoopActive = true
+-- Vòng tấn công chạy liên tục, độc lập
+local function StartAttackLoop()
     task.spawn(function()
-        while getgenv().AutoNPC and getgenv().AttackLoopActive and not getgenv().PlayerDead and humanoid and humanoid.Health > 0 do
-            local primaryPart = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
-            if primaryPart and hrp and (hrp.Position - primaryPart.Position).Magnitude <= 50 then
-                game:GetService("ReplicatedStorage")
-                    :WaitForChild("CombatSystem")
-                    :WaitForChild("Remotes")
-                    :WaitForChild("RequestHit")
-                    :FireServer()
-
-                local args = { 1 }
-                game:GetService("ReplicatedStorage")
-                    :WaitForChild("AbilitySystem")
-                    :WaitForChild("Remotes")
-                    :WaitForChild("RequestAbility")
-                    :FireServer(unpack(args))
-            end
+        while true do
             task.wait(0.5)
+            if not getgenv().AutoNPC or getgenv().PlayerDead or not hrp then continue end
+            local npcsFolder = workspace:FindFirstChild("NPCs")
+            if not npcsFolder then continue end
+            for _, npc in ipairs(npcsFolder:GetChildren()) do
+                local h = npc:FindFirstChild("Humanoid")
+                local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
+                if h and h.Health > 0 and primaryPart then
+                    if (hrp.Position - primaryPart.Position).Magnitude <= 50 then
+                        game:GetService("ReplicatedStorage")
+                            :WaitForChild("CombatSystem")
+                            :WaitForChild("Remotes")
+                            :WaitForChild("RequestHit")
+                            :FireServer()
+                        local args = { 1 }
+                        game:GetService("ReplicatedStorage")
+                            :WaitForChild("AbilitySystem")
+                            :WaitForChild("Remotes")
+                            :WaitForChild("RequestAbility")
+                            :FireServer(unpack(args))
+                        break
+                    end
+                end
+            end
         end
-        getgenv().AttackLoopActive = false
     end)
 end
 
@@ -1183,10 +1188,7 @@ local function HoverOnNPC()
     EnableHover(hrp)
     local bp = hrp:FindFirstChild("BodyPosition")
 
-    if humanoid and humanoid.Health > 0 then
-        StartAttackLoop(humanoid, target)
-    end
-
+    -- Vòng di chuyển: bám theo target
     while getgenv().AutoNPC and not getgenv().PlayerDead and humanoid and humanoid.Health > 0 do
         if not hrp then break end
         primaryPart = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
@@ -1201,21 +1203,26 @@ local function HoverOnNPC()
         task.wait(0.01)
     end
 
-    if not getgenv().AutoNPC then
+    if not getgenv().AutoNPC or getgenv().PlayerDead then
         DisableHover(hrp)
         return
     end
 
-    -- Nếu có filter → giữ hover tại chỗ, không tìm target khác
+    -- Target chết: lơ lửng tại chỗ, chờ hồi sinh
     if getgenv().NPCFilter ~= "" then
         HoldHover()
-        while getgenv().AutoNPC and getgenv().NPCFilter ~= "" and not getgenv().PlayerDead do
+        while getgenv().AutoNPC and not getgenv().PlayerDead do
             task.wait(0.5)
+            local newTarget, _ = GetNearestNPC(500)
+            if newTarget then break end
         end
     else
         HoldHover()
     end
 end
+
+-- Khởi động vòng tấn công một lần duy nhất
+StartAttackLoop()
 
 task.spawn(function()
     while true do
@@ -1241,7 +1248,6 @@ Auto:AddToggle({
     Callback = function(value)
         getgenv().AutoNPC = value
         if not value and hrp then
-            getgenv().AttackLoopActive = false
             DisableHover(hrp)
         end
     end
