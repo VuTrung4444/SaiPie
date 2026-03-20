@@ -21,9 +21,9 @@ local IsOpen = Subs.Wait
 	local MainTab = Window:CreateTab({Name = "Main"})
 	local MainSection = MainTab:CreateSection({Name = "Farming"})
 	local Settings = MainTab:CreateSection({Name = "Settings"})
-	local Auto = MainTab:CreateSection({Name = "Auto", Side = "Left"})
+	local Farm = MainTab:CreateSection({Name = "Farm", Side = "Left"})
 	local Ect = MainTab:CreateSection({Name = "Ect", Side = "Right"})
-	local Teleports = MainTab:CreateSection({Name = "Teleports", Side = "Right"})
+	local AutoSkill = MainTab:CreateSection({Name = "AutoSkill", Side = "Right"})
 
 
 	--// Misc Tab \\--
@@ -1035,16 +1035,22 @@ local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPa
 getgenv().AutoNPC = false
 getgenv().NPCFilter = ""
 getgenv().PlayerDead = false
+getgenv().CombatEquipped = false
+getgenv().UseKey1 = false
+getgenv().UseKey2 = false
+getgenv().UseKey3 = false
 
 local function UpdateHRP(char)
     task.wait(0.1)
     getgenv().PlayerDead = false
+    getgenv().CombatEquipped = false
     hrp = char:WaitForChild("HumanoidRootPart")
 
     local humanoid = char:WaitForChild("Humanoid")
     humanoid.HealthChanged:Connect(function(health)
         if health <= 0 and not getgenv().PlayerDead then
             getgenv().PlayerDead = true
+            getgenv().CombatEquipped = false
         end
     end)
 end
@@ -1108,7 +1114,6 @@ local function GetNearestNPC(maxDistance)
         if distance > maxDistance then continue end
 
         if hasFilter then
-            -- Dùng DisplayName thay vì npc.Name
             local displayName = h.DisplayName ~= "" and h.DisplayName or npc.Name
             local score = FuzzyScore(filter, displayName)
             if score < 0 then continue end
@@ -1132,7 +1137,59 @@ local function HoldHover()
     end
 end
 
--- Vòng tấn công chạy liên tục, độc lập
+local function HasCombatTool()
+    local char = player.Character
+    if not char then return false end
+    local username = player.Name
+    for _, obj in ipairs(char:GetChildren()) do
+        if obj.ClassName == "Tool" then
+            if obj.Name == "Combat" or obj.Name == "Quake" then
+                return true
+            end
+        end
+    end
+    local charInWorkspace = workspace:FindFirstChild(username)
+    if charInWorkspace then
+        for _, obj in ipairs(charInWorkspace:GetChildren()) do
+            if obj.ClassName == "Tool" then
+                if obj.Name == "Combat" or obj.Name == "Quake" then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+local function TryEquipCombat()
+    if getgenv().CombatEquipped then return end
+    if HasCombatTool() then
+        getgenv().CombatEquipped = true
+        return
+    end
+
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    local keysToTry = {}
+    if getgenv().UseKey1 then table.insert(keysToTry, Enum.KeyCode.One) end
+    if getgenv().UseKey2 then table.insert(keysToTry, Enum.KeyCode.Two) end
+    if getgenv().UseKey3 then table.insert(keysToTry, Enum.KeyCode.Three) end
+    if #keysToTry == 0 then table.insert(keysToTry, Enum.KeyCode.One) end
+
+    for _, keyCode in ipairs(keysToTry) do
+        VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+        task.wait(0.3)
+        if HasCombatTool() then
+            getgenv().CombatEquipped = true
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
+            task.wait(0.05)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
+            return
+        end
+    end
+end
+
 local function StartAttackLoop()
     task.spawn(function()
         while true do
@@ -1150,12 +1207,6 @@ local function StartAttackLoop()
                             :WaitForChild("Remotes")
                             :WaitForChild("RequestHit")
                             :FireServer()
-                        local args = { 1 }
-                        game:GetService("ReplicatedStorage")
-                            :WaitForChild("AbilitySystem")
-                            :WaitForChild("Remotes")
-                            :WaitForChild("RequestAbility")
-                            :FireServer(unpack(args))
                         break
                     end
                 end
@@ -1179,22 +1230,11 @@ local function HoverOnNPC()
         return
     end
 
-local VirtualInputManager = game:GetService("VirtualInputManager")
-    local backpack = player:FindFirstChild("Backpack")
-    if backpack and backpack:FindFirstChild("Combat") then
-        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.One, false, game)
-        task.wait(0.05)
-        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.One, false, game)
-        task.wait(0.05)
-        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
-        task.wait(0.05)
-        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
-    end
+    TryEquipCombat()
 
     EnableHover(hrp)
     local bp = hrp:FindFirstChild("BodyPosition")
 
-    -- Vòng di chuyển: bám theo target
     while getgenv().AutoNPC and not getgenv().PlayerDead and humanoid and humanoid.Health > 0 do
         if not hrp then break end
         primaryPart = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
@@ -1214,7 +1254,6 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
         return
     end
 
-    -- Target chết: lơ lửng tại chỗ, chờ hồi sinh
     if getgenv().NPCFilter ~= "" then
         HoldHover()
         while getgenv().AutoNPC and not getgenv().PlayerDead do
@@ -1227,7 +1266,6 @@ local VirtualInputManager = game:GetService("VirtualInputManager")
     end
 end
 
--- Khởi động vòng tấn công một lần duy nhất
 StartAttackLoop()
 
 task.spawn(function()
@@ -1248,7 +1286,7 @@ task.spawn(function()
     end
 end)
 
-Auto:AddToggle({
+Farm:AddToggle({
     Name = "Auto NPC",
     Default = false,
     Callback = function(value)
@@ -1259,7 +1297,7 @@ Auto:AddToggle({
     end
 })
 
-Auto:AddTextbox({
+Farm:AddTextbox({
     Name = "Đánh theo tên",
     Default = "",
     Placeholder = "Nhập tên NPC (vd: thie → Thief)",
@@ -1268,7 +1306,7 @@ Auto:AddTextbox({
     end
 })
 
-Auto:AddTextbox({
+Farm:AddTextbox({
     Name = "Độ cao",
     Default = tostring(HoverHeight),
     Placeholder = "Nhập độ cao (mặc định: 6)",
@@ -1277,6 +1315,30 @@ Auto:AddTextbox({
         if num then
             HoverHeight = num
         end
+    end
+})
+
+Farm:AddToggle({
+    Name = "Vũ khí 1",
+    Default = false,
+    Callback = function(value)
+        getgenv().UseKey1 = value
+    end
+})
+
+Farm:AddToggle({
+    Name = "Vũ khí 2",
+    Default = false,
+    Callback = function(value)
+        getgenv().UseKey2 = value
+    end
+})
+
+Farm:AddToggle({
+    Name = "Vũ khí 3",
+    Default = false,
+    Callback = function(value)
+        getgenv().UseKey3 = value
     end
 })
 
@@ -1354,35 +1416,35 @@ task.spawn(function()
     end
 end)
 
-Auto:AddToggle({
+AutoSkill:AddToggle({
     Name = "Auto Skill",
     Default = false,
     Callback = function(value)
         getgenv().AutoSkill = value
     end
 })
-Auto:AddToggle({
+AutoSkill:AddToggle({
     Name = "Skill Z",
     Default = false,
     Callback = function(value)
         getgenv().UseZ = value
     end
 })
-Auto:AddToggle({
+AutoSkill:AddToggle({
     Name = "Skill X",
     Default = false,
     Callback = function(value)
         getgenv().UseX = value
     end
 })
-Auto:AddToggle({
+AutoSkill:AddToggle({
     Name = "Skill C",
     Default = false,
     Callback = function(value)
         getgenv().UseC = value
     end
 })
-Auto:AddToggle({
+AutoSkill:AddToggle({
     Name = "Skill H",
     Default = false,
     Callback = function(value)
@@ -1390,64 +1452,6 @@ Auto:AddToggle({
     end
 })
 
-if placeId == mainMenuPlaceID then
-	local SelectedTown = nil
-
-	local Towns = {}
-
-	local townNames = {"Town1", "Town2", "Town3", "Town4", "Town5"}
-
-	for _, name in ipairs(townNames) do
-		local success, townInstance = pcall(function()
-			return workspace:WaitForChild("Objects"):WaitForChild("Locations"):WaitForChild("Towns"):WaitForChild(name)
-		end)
-		if success and townInstance then
-			Towns[name] = townInstance
-		end
-	end
-
-	for townName, townInstance in pairs(Towns) do
-		Teleports:AddToggle({
-			Name = townName,
-			Default = false,
-			Callback = function(state)
-				if state then
-					SelectedTown = townInstance
-
-					for otherName, _ in pairs(Towns) do
-						if otherName ~= townName then
-							Teleports:UpdateToggle(otherName, false)
-						end
-					end
-				else
-					if SelectedTown == townInstance then
-						SelectedTown = nil
-					end
-				end
-			end
-		})
-	end
-
-	Teleports:AddButton({
-		Name = "Teleport",
-		Callback = function()
-			if SelectedTown then
-				local player = game:GetService("Players").LocalPlayer
-				local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-				if hrp and SelectedTown:IsDescendantOf(workspace) then
-					local pivot = SelectedTown:GetPivot()
-					local offsetY = 10
-					hrp.CFrame = CFrame.new(pivot.Position + Vector3.new(0, offsetY, 0))
-					task.wait(1)
-				else
-					warn("Town chưa load hoặc không tồn tại trong workspace!")
-				end
-			else
-				warn("Chưa chọn Town để dịch chuyển!")
-			end
-		end
-	})
-end
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
