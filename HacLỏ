@@ -1268,6 +1268,18 @@ Auto:AddTextbox({
     end
 })
 
+Auto:AddTextbox({
+    Name = "Độ cao",
+    Default = tostring(HoverHeight),
+    Placeholder = "Nhập độ cao (mặc định: 6)",
+    Callback = function(value)
+        local num = tonumber(value)
+        if num then
+            HoverHeight = num
+        end
+    end
+})
+
 getgenv().AutoSkill = false
 getgenv().UseZ = false
 getgenv().UseX = false
