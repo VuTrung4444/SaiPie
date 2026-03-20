@@ -1027,7 +1027,7 @@ MiscSection:AddButton({
 	end
 })
 
-local HoverHeight = 6
+local HoverHeight = 8
 local Players = game:GetService("Players")
 local workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
@@ -1036,14 +1036,23 @@ getgenv().AutoNPC = false
 getgenv().NPCFilter = ""
 getgenv().PlayerDead = false
 getgenv().CombatEquipped = false
-getgenv().UseKey1 = false
-getgenv().UseKey2 = false
-getgenv().UseKey3 = false
+getgenv().TargetIndex = 1
+
+local function GetFilterList()
+    local filter = getgenv().NPCFilter or ""
+    if filter == "" then return {} end
+    local list = {}
+    for word in filter:gmatch("%S+") do
+        table.insert(list, word)
+    end
+    return list
+end
 
 local function UpdateHRP(char)
     task.wait(0.1)
     getgenv().PlayerDead = false
     getgenv().CombatEquipped = false
+    getgenv().TargetIndex = 1
     hrp = char:WaitForChild("HumanoidRootPart")
 
     local humanoid = char:WaitForChild("Humanoid")
@@ -1093,15 +1102,12 @@ local function FuzzyScore(query, name)
     return score
 end
 
-local function GetNearestNPC(maxDistance)
+local function GetNearestNPCByFilter(filter, maxDistance)
     if not hrp then return nil, nil end
     local npcsFolder = workspace:FindFirstChild("NPCs")
     if not npcsFolder then return nil, nil end
 
-    local filter = getgenv().NPCFilter or ""
-    local hasFilter = filter ~= ""
     maxDistance = maxDistance or 2000
-
     local target, humanoid = nil, nil
     local closestDistance = math.huge
 
@@ -1113,7 +1119,7 @@ local function GetNearestNPC(maxDistance)
         local distance = (hrp.Position - primaryPart.Position).Magnitude
         if distance > maxDistance then continue end
 
-        if hasFilter then
+        if filter and filter ~= "" then
             local displayName = h.DisplayName ~= "" and h.DisplayName or npc.Name
             local score = FuzzyScore(filter, displayName)
             if score < 0 then continue end
@@ -1128,6 +1134,16 @@ local function GetNearestNPC(maxDistance)
     return target, humanoid
 end
 
+local function GetNearestNPC(maxDistance)
+    local list = GetFilterList()
+    if #list == 0 then
+        return GetNearestNPCByFilter("", maxDistance)
+    end
+    local index = getgenv().TargetIndex
+    if index > #list then index = 1 end
+    return GetNearestNPCByFilter(list[index], maxDistance)
+end
+
 local function HoldHover()
     if not hrp then return end
     EnableHover(hrp)
@@ -1135,30 +1151,6 @@ local function HoldHover()
     if bp then
         bp.Position = hrp.Position
     end
-end
-
-local function HasCombatTool()
-    local char = player.Character
-    if not char then return false end
-    local username = player.Name
-    for _, obj in ipairs(char:GetChildren()) do
-        if obj.ClassName == "Tool" then
-            if obj.Name == "Combat" or obj.Name == "Quake" then
-                return true
-            end
-        end
-    end
-    local charInWorkspace = workspace:FindFirstChild(username)
-    if charInWorkspace then
-        for _, obj in ipairs(charInWorkspace:GetChildren()) do
-            if obj.ClassName == "Tool" then
-                if obj.Name == "Combat" or obj.Name == "Quake" then
-                    return true
-                end
-            end
-        end
-    end
-    return false
 end
 
 local function TryEquipCombat()
@@ -1169,8 +1161,6 @@ local function TryEquipCombat()
     if getgenv().UseKey1 then table.insert(keysToTry, Enum.KeyCode.One) end
     if getgenv().UseKey2 then table.insert(keysToTry, Enum.KeyCode.Two) end
     if getgenv().UseKey3 then table.insert(keysToTry, Enum.KeyCode.Three) end
-
-    -- Không có toggle nào được chọn thì không làm gì
     if #keysToTry == 0 then return end
 
     for _, keyCode in ipairs(keysToTry) do
@@ -1180,7 +1170,6 @@ local function TryEquipCombat()
         task.wait(0.3)
     end
 
-    -- Gọi G sau khi gửi tất cả phím vũ khí
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
     task.wait(0.05)
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
@@ -1215,6 +1204,10 @@ end
 
 local function HoverOnNPC()
     if not hrp or getgenv().PlayerDead then return end
+
+    local list = GetFilterList()
+    local hasFilter = #list > 0
+
     local target, humanoid = GetNearestNPC()
 
     if not target then
@@ -1252,11 +1245,15 @@ local function HoverOnNPC()
         return
     end
 
-    if getgenv().NPCFilter ~= "" then
+    -- Target chết: chuyển sang mục tiêu tiếp theo trong danh sách
+    if hasFilter then
+        local index = getgenv().TargetIndex
+        getgenv().TargetIndex = (index % #list) + 1
         HoldHover()
+        -- Chờ mục tiêu tiếp theo xuất hiện trong 5000 đơn vị
         while getgenv().AutoNPC and not getgenv().PlayerDead do
             task.wait(0.5)
-            local newTarget, _ = GetNearestNPC(500)
+            local newTarget, _ = GetNearestNPC(5000)
             if newTarget then break end
         end
     else
@@ -1298,9 +1295,10 @@ Farm:AddToggle({
 Farm:AddTextbox({
     Name = "Đánh theo tên",
     Default = "",
-    Placeholder = "Nhập tên NPC (vd: thie → Thief)",
+    Placeholder = "Nhiều mục tiêu: Go Yu Sen",
     Callback = function(value)
         getgenv().NPCFilter = value or ""
+        getgenv().TargetIndex = 1
     end
 })
 
