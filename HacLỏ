@@ -1314,7 +1314,7 @@ end
 
 task.spawn(function()
     while true do
-        task.wait(1)
+        task.wait(4)
         if not getgenv().AutoSkill then continue end
         if not HasNearbyMob(1000) then continue end
 
@@ -1329,7 +1329,7 @@ task.spawn(function()
             if not getgenv().AutoSkill then break end
             if not HasNearbyMob(1000) then break end
             SendKey(keyCode)
-            task.wait(0.1)
+            task.wait(0.5)
         end
     end
 end)
