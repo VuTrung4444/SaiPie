@@ -1312,6 +1312,15 @@ local function HasNearbyMob(maxDistance)
     return false
 end
 
+local function IsHOnCooldown()
+    local mainFrame = game:GetService("Players").LocalPlayer.PlayerGui
+        :FindFirstChild("CooldownUI")
+        and game:GetService("Players").LocalPlayer.PlayerGui.CooldownUI
+        :FindFirstChild("MainFrame")
+    if not mainFrame then return false end
+    return mainFrame:FindFirstChild("Cooldown_ObsHaki_Observation") ~= nil
+end
+
 task.spawn(function()
     while true do
         task.wait(4)
@@ -1322,7 +1331,6 @@ task.spawn(function()
         if getgenv().UseZ then table.insert(keys, Enum.KeyCode.Z) end
         if getgenv().UseX then table.insert(keys, Enum.KeyCode.X) end
         if getgenv().UseC then table.insert(keys, Enum.KeyCode.C) end
-		if getgenv().UseH then table.insert(keys, Enum.KeyCode.H) end
         if #keys == 0 then continue end
 
         for _, keyCode in ipairs(keys) do
@@ -1331,6 +1339,18 @@ task.spawn(function()
             SendKey(keyCode)
             task.wait(0.5)
         end
+    end
+end)
+
+-- Vòng riêng cho phím H: quan sát cooldown UI
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+        if not getgenv().AutoSkill or not getgenv().UseH then continue end
+        if not HasNearbyMob(10) then continue end
+        -- Chỉ gửi H khi không còn cooldown
+        if IsHOnCooldown() then continue end
+        SendKey(Enum.KeyCode.H)
     end
 end)
 
