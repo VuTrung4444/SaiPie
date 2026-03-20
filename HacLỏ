@@ -1179,12 +1179,16 @@ local function HoverOnNPC()
         return
     end
 
-    local VirtualInputManager = game:GetService("VirtualInputManager")
+local VirtualInputManager = game:GetService("VirtualInputManager")
     local backpack = player:FindFirstChild("Backpack")
     if backpack and backpack:FindFirstChild("Combat") then
         VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.One, false, game)
         task.wait(0.05)
         VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.One, false, game)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
+        task.wait(0.05)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
     end
 
     EnableHover(hrp)
