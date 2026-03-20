@@ -1410,9 +1410,27 @@ task.spawn(function()
         task.wait(0.5)
         if not getgenv().AutoSkill or not getgenv().UseH then continue end
         if not HasNearbyMob(10) then continue end
-        -- Chỉ gửi H khi không còn cooldown
         if IsHOnCooldown() then continue end
+
+        -- Gửi phím H
         SendKey(Enum.KeyCode.H)
+
+        -- Chờ Cooldown_Obs xuất hiện (skill bắt đầu)
+        local appeared = false
+        for _ = 1, 20 do -- chờ tối đa 10 giây
+            task.wait(0.5)
+            if IsHOnCooldown() then
+                appeared = true
+                break
+            end
+        end
+
+        -- Nếu cooldown xuất hiện thì chờ nó biến mất
+        if appeared then
+            while IsHOnCooldown() do
+                task.wait(0.5)
+            end
+        end
     end
 end)
 
