@@ -1163,31 +1163,29 @@ end
 
 local function TryEquipCombat()
     if getgenv().CombatEquipped then return end
-    if HasCombatTool() then
-        getgenv().CombatEquipped = true
-        return
-    end
 
     local VirtualInputManager = game:GetService("VirtualInputManager")
     local keysToTry = {}
     if getgenv().UseKey1 then table.insert(keysToTry, Enum.KeyCode.One) end
     if getgenv().UseKey2 then table.insert(keysToTry, Enum.KeyCode.Two) end
     if getgenv().UseKey3 then table.insert(keysToTry, Enum.KeyCode.Three) end
-    if #keysToTry == 0 then table.insert(keysToTry, Enum.KeyCode.One) end
+
+    -- Không có toggle nào được chọn thì không làm gì
+    if #keysToTry == 0 then return end
 
     for _, keyCode in ipairs(keysToTry) do
         VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
         task.wait(0.05)
         VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
         task.wait(0.3)
-        if HasCombatTool() then
-            getgenv().CombatEquipped = true
-            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
-            task.wait(0.05)
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
-            return
-        end
     end
+
+    -- Gọi G sau khi gửi tất cả phím vũ khí
+    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
+    task.wait(0.05)
+    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
+
+    getgenv().CombatEquipped = true
 end
 
 local function StartAttackLoop()
@@ -1385,7 +1383,7 @@ end
 
 task.spawn(function()
     while true do
-        task.wait(4)
+        task.wait(1)
         if not getgenv().AutoSkill then continue end
         if not HasNearbyMob(1000) then continue end
 
