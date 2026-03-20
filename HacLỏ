@@ -1102,6 +1102,7 @@ local function FuzzyScore(query, name)
     return score
 end
 
+
 local function GetNearestNPCByFilter(filter, maxDistance)
     if not hrp then return nil, nil end
     local npcsFolder = workspace:FindFirstChild("NPCs")
@@ -1139,9 +1140,14 @@ local function GetNearestNPC(maxDistance)
     if #list == 0 then
         return GetNearestNPCByFilter("", maxDistance)
     end
-    local index = getgenv().TargetIndex
-    if index > #list then index = 1 end
-    return GetNearestNPCByFilter(list[index], maxDistance)
+    -- Duyệt theo thứ tự ưu tiên, chọn mục tiêu đầu tiên tồn tại
+    for _, filter in ipairs(list) do
+        local target, humanoid = GetNearestNPCByFilter(filter, maxDistance)
+        if target then
+            return target, humanoid
+        end
+    end
+    return nil, nil
 end
 
 local function HoldHover()
