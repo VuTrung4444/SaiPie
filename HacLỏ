@@ -718,7 +718,9 @@ MiscSection:AddButton({
 
 
 local HoverHeight = 8
+local MoveSpeed = 100 -- studs/giây, điều chỉnh tốc độ di chuyển tại đây
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -786,7 +788,7 @@ local function EnableHover(rootPart)
         bp.Name = "BodyPosition"
         bp.MaxForce = Vector3.new(1e5, 1e5, 1e5)
         bp.D = 500
-        bp.P = 1000
+        bp.P = 10000
         bp.Position = rootPart.Position
         bp.Parent = rootPart
     end
@@ -869,14 +871,33 @@ local function HoldHover()
     end
 end
 
-local function TryEquipCombat()
-    if getgenv().CombatEquipped then
-        return
+local function MoveTowards(targetPos, lookPos)
+    if not hrp then return end
+    local startPos = hrp.Position
+    local desiredPos = targetPos + Vector3.new(0, HoverHeight, 0)
+    local delta = desiredPos - startPos
+    local duration = delta.Magnitude / MoveSpeed
+    local startTime = tick()
+
+    while tick() - startTime < duration do
+        if not hrp then return end
+        if not getgenv().AutoNPC or getgenv().PlayerDead then return end
+        local t = math.min((tick() - startTime) / duration, 1)
+        local nextPos = startPos + delta * t
+        hrp.Velocity = Vector3.zero
+        hrp.CFrame = CFrame.new(nextPos, nextPos + (lookPos - nextPos) * Vector3.new(1, 0, 1))
+        RunService.Heartbeat:Wait()
     end
+
+    hrp.Velocity = Vector3.zero
+    hrp.CFrame = CFrame.new(desiredPos, desiredPos + (lookPos - desiredPos) * Vector3.new(1, 0, 1))
+end
+
+local function TryEquipCombat()
+    if getgenv().CombatEquipped then return end
 
     local char = player.Character
     local tool = char and char:FindFirstChildWhichIsA("Tool")
-
     if tool then
         getgenv().CombatEquipped = true
         return
@@ -888,9 +909,7 @@ local function TryEquipCombat()
     if getgenv().UseKey2 then table.insert(keysToTry, Enum.KeyCode.Two) end
     if getgenv().UseKey3 then table.insert(keysToTry, Enum.KeyCode.Three) end
 
-    if #keysToTry == 0 then
-        return
-    end
+    if #keysToTry == 0 then return end
 
     for _, keyCode in ipairs(keysToTry) do
         VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
@@ -1003,7 +1022,7 @@ local function HoverOnNPC_AllBoss()
             end
 
             if mobTarget then
-				TryEquipCombat()
+                TryEquipCombat()
                 EnableHover(hrp)
                 local lastBossCheck = 0
                 while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
@@ -1020,13 +1039,7 @@ local function HoverOnNPC_AllBoss()
                     if not mobTarget.Parent then break end
 
                     local pos = mobTarget:GetPivot().Position
-                    local desiredPos = pos + Vector3.new(0, HoverHeight, 0)
-                    local bp = hrp:FindFirstChild("BodyPosition")
-                    if bp then bp.Position = desiredPos end
-                    hrp.CFrame = CFrame.new(hrp.Position, pos)
-                    hrp.Velocity = Vector3.zero
-                    hrp.AssemblyLinearVelocity = Vector3.zero
-                    task.wait(0.01)
+                    MoveTowards(pos, pos)
                 end
             else
                 HoldHover()
@@ -1044,13 +1057,7 @@ local function HoverOnNPC_AllBoss()
             if not targetHumanoid or targetHumanoid.Health <= 0 then break end
 
             local pos = target:GetPivot().Position
-            local desiredPos = pos + Vector3.new(0, HoverHeight, 0)
-            local bp = hrp:FindFirstChild("BodyPosition")
-            if bp then bp.Position = desiredPos end
-            hrp.CFrame = CFrame.new(hrp.Position, pos)
-            hrp.Velocity = Vector3.zero
-            hrp.AssemblyLinearVelocity = Vector3.zero
-            task.wait(0.01)
+            MoveTowards(pos, pos)
         end
 
         if not getgenv().AutoNPC or getgenv().PlayerDead or not IsAllBossMode() then
@@ -1091,20 +1098,13 @@ local function HoverOnNPC()
     end
 
     TryEquipCombat()
-
     EnableHover(hrp)
-    local bp = hrp:FindFirstChild("BodyPosition")
 
     while getgenv().AutoNPC and not getgenv().PlayerDead and humanoid and humanoid.Health > 0 do
         if not hrp then break end
         primaryPart = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
         if not primaryPart then break end
-        local desiredPos = primaryPart.Position + Vector3.new(0, HoverHeight, 0)
-        if bp then bp.Position = desiredPos end
-        hrp.CFrame = CFrame.new(hrp.Position, primaryPart.Position)
-        hrp.Velocity = Vector3.zero
-        hrp.AssemblyLinearVelocity = Vector3.zero
-        task.wait(0.01)
+        MoveTowards(primaryPart.Position, primaryPart.Position)
     end
 
     if not getgenv().AutoNPC or getgenv().PlayerDead then
