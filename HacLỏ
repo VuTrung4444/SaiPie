@@ -717,10 +717,10 @@ MiscSection:AddButton({
 })
 
 
+```lua
 local HoverHeight = 8
 local MoveSpeed = 200 -- studs/giây, điều chỉnh tốc độ di chuyển tại đây
 local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
 local workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
 local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
@@ -876,22 +876,27 @@ local function MoveTowards(targetPos)
     local desiredPos = targetPos + Vector3.new(0, HoverHeight, 0)
     local distance = (hrp.Position - desiredPos).Magnitude
 
-    if distance > 50 then
-        -- Xa -> kiểm soát tốc độ bằng step
+    if distance > 500 then
+        -- Xa -> di chuyển từng bước theo tốc độ
         local direction = desiredPos - hrp.Position
         local dt = task.wait(0.01)
         local step = math.min(MoveSpeed * dt, distance)
         local nextPos = hrp.Position + direction.Unit * step
         hrp.Velocity = Vector3.zero
         hrp.AssemblyLinearVelocity = Vector3.zero
-        hrp.CFrame = CFrame.new(nextPos, Vector3.new(targetPos.X, nextPos.Y, targetPos.Z))
+        local lookAt = Vector3.new(targetPos.X, nextPos.Y, targetPos.Z)
+        if (lookAt - nextPos).Magnitude > 0.1 then
+            hrp.CFrame = CFrame.new(nextPos, lookAt)
+        else
+            hrp.CFrame = CFrame.new(nextPos)
+        end
         local bp = hrp:FindFirstChild("BodyPosition")
         if bp then bp.Position = nextPos end
     else
-        -- Gần -> dùng BodyPosition như cũ
+        -- Gần -> dùng logic gốc, đứng yên xoay mặt về mục tiêu
         local bp = hrp:FindFirstChild("BodyPosition")
         if bp then bp.Position = desiredPos end
-        hrp.CFrame = CFrame.new(hrp.Position, Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z))
+        hrp.CFrame = CFrame.new(hrp.Position, targetPos)
         hrp.Velocity = Vector3.zero
         hrp.AssemblyLinearVelocity = Vector3.zero
         task.wait(0.01)
@@ -1102,6 +1107,7 @@ local function HoverOnNPC()
 
     TryEquipCombat()
     EnableHover(hrp)
+    local bp = hrp:FindFirstChild("BodyPosition")
 
     while getgenv().AutoNPC and not getgenv().PlayerDead and humanoid and humanoid.Health > 0 do
         if not hrp then break end
