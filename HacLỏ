@@ -641,56 +641,67 @@ Ect:AddButton({
 })
 
 
-
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 local PLACE_ID = game.PlaceId
+local currentJobId = game.JobId
+
+local function GetServers(cursor)
+    local url = "https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?limit=100"
+    if cursor and cursor ~= "" then
+        url = url .. "&cursor=" .. cursor
+    end
+    local ok, result = pcall(function()
+        return request({
+            Url = url,
+            Method = "GET"
+        })
+    end)
+    if not ok or not result or not result.Body then return nil end
+    local ok2, data = pcall(function()
+        return game:GetService("HttpService"):JSONDecode(result.Body)
+    end)
+    if not ok2 or not data then return nil end
+    return data
+end
 
 MiscSection:AddButton({
     Name = "Hop Server",
     Callback = function()
-        local success, servers = pcall(function()
-            return TeleportService:GetTeleportSetting("servers")
-        end)
-
-        -- Lấy danh sách server hiện có qua teleport options
-        local HttpService = game:GetService("HttpService")
-        local currentJobId = game.JobId
-
-        local foundServer = false
+        local found = false
         local cursor = ""
 
         repeat
-            local ok, result = pcall(function()
-                return Players:GetServerList(PLACE_ID, cursor)
-            end)
-            if not ok then break end
+            local data = GetServers(cursor)
+            if not data or not data.data then break end
 
-            -- Lọc bỏ server hiện tại
             local candidates = {}
-            for _, server in ipairs(result.Servers) do
-                if server.Id ~= currentJobId and server.Playing < server.MaxPlayers then
+            for _, server in ipairs(data.data) do
+                if server.id ~= currentJobId
+                    and server.playing ~= nil
+                    and server.maxPlayers ~= nil
+                    and server.playing < server.maxPlayers then
                     table.insert(candidates, server)
                 end
             end
 
             if #candidates > 0 then
-                -- Chọn ngẫu nhiên 1 server trong danh sách
                 local chosen = candidates[math.random(1, #candidates)]
-                foundServer = true
-                TeleportService:TeleportToPlaceInstance(PLACE_ID, chosen.Id, Players.LocalPlayer)
+                found = true
+                TeleportService:TeleportToPlaceInstance(PLACE_ID, chosen.id, Players.LocalPlayer)
                 break
             end
 
-            cursor = result.NextPageCursor
+            cursor = data.nextPageCursor
         until not cursor or cursor == ""
 
-        -- Không tìm thấy server nào khác → rejoin bình thường
-        if not foundServer then
+        if not found then
             TeleportService:Teleport(PLACE_ID, Players.LocalPlayer)
         end
     end
 })
+
+
 
 MiscSection:AddButton({
 	Name = "No Fog",
