@@ -875,7 +875,7 @@ local function MoveTowards(targetPos)
     local desiredPos = targetPos + Vector3.new(0, HoverHeight, 0)
     local distance = (hrp.Position - desiredPos).Magnitude
 
-    if distance > 500 then
+    if distance > 50 then
         local direction = desiredPos - hrp.Position
         local dt = task.wait(0.01)
         local step = math.min(MoveSpeed * dt, distance)
