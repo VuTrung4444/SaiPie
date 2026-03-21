@@ -718,7 +718,7 @@ MiscSection:AddButton({
 
 
 local HoverHeight = 8
-local MoveSpeed = 100 -- studs/giây, điều chỉnh tốc độ di chuyển tại đây
+local MoveSpeed = 200 -- studs/giây, điều chỉnh tốc độ di chuyển tại đây
 local Players = game:GetService("Players")
 local workspace = game:GetService("Workspace")
 local player = Players.LocalPlayer
