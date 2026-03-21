@@ -860,108 +860,6 @@ Ect:AddButton({
 
 
 
-MiscSection:AddToggle({
-    Name = "Auto Chest",
-    Default = false,
-    Callback = function(state)
-        getgenv().AutoChest = state
-
-        local Players = game:GetService("Players")
-        local player = Players.LocalPlayer
-        local workspace = game:GetService("Workspace")
-        local VirtualInputManager = game:GetService("VirtualInputManager")
-
-        task.spawn(function()
-            while getgenv().AutoChest do
-                task.wait(1)
-
-                local dropsFolder = workspace:FindFirstChild("Objects")
-                    and workspace.Objects:FindFirstChild("Drops")
-                if not dropsFolder then continue end
-
-                for _, drop in ipairs(dropsFolder:GetChildren()) do
-                    if not getgenv().AutoChest then break end
-                    if not drop.Name:match("^" .. player.Name .. "|") then continue end
-
-                    local chest = drop:FindFirstChild("Chest")
-                    if not chest then continue end
-
-                    local prompt = chest:FindFirstChild("Collect")
-                    if prompt
-                        and prompt:IsA("ProximityPrompt")
-                        and prompt.ClickablePrompt
-                        and prompt.Enabled then
-
-                        fireproximityprompt(prompt)
-                        task.wait(1)
-                    end
-                end
-
-                local lootGUI = player.PlayerGui:FindFirstChild("Loot")
-                if not lootGUI then continue end
-
-                local results = lootGUI:FindFirstChild("Results")
-                if not results then continue end
-
-                local mainFrame = results:FindFirstChild("Main")
-                if not mainFrame then continue end
-
-                local scrollingFrame = mainFrame:FindFirstChild("ScrollingFrame")
-                if not scrollingFrame then continue end
-
-                local frameDetected = false
-                for _, itemFrame in ipairs(scrollingFrame:GetChildren()) do
-                    if itemFrame:IsA("Frame") then
-                        frameDetected = true
-                        break
-                    end
-                end
-
-                if frameDetected then
-                    local textLabel = results
-                        :WaitForChild("Main")
-                        :WaitForChild("Continue")
-                        :WaitForChild("TextLabel")
-
-                    local absPos = textLabel.AbsolutePosition
-                    local absSize = textLabel.AbsoluteSize
-
-                    -- Hàm kiểm tra xấp xỉ với sai số 0.5
-                    local function approx(a, b)
-                        return math.abs(a - b) <= 0.5
-                    end
-
-                    local useFixedClick =
-                        approx(absPos.X, 388.255) and
-                        approx(absPos.Y, 255.579) and
-                        approx(absSize.X, 48.201) and
-                        approx(absSize.Y, 22.128)
-
-                    local clickX, clickY
-
-                    if useFixedClick then
-                        clickX = 450
-                        clickY = 315
-                    else
-                        clickX = absPos.X + (absSize.X / 2)
-                        clickY = absPos.Y + (absSize.Y * 2)
-                    end
-
-                    clickX = math.floor(clickX)
-                    clickY = math.floor(clickY)
-
-                    VirtualInputManager:SendMouseMoveEvent(clickX, clickY, game)
-                    task.wait(0.1)
-                    VirtualInputManager:SendMouseButtonEvent(clickX, clickY, 0, true, game, 0)
-                    task.wait(0.1)
-                    VirtualInputManager:SendMouseButtonEvent(clickX, clickY, 0, false, game, 0)
-                end
-            end
-        end)
-    end
-})
-
-
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 local PLACE_ID = game.PlaceId
@@ -1027,6 +925,7 @@ MiscSection:AddButton({
 	end
 })
 
+
 local HoverHeight = 8
 local Players = game:GetService("Players")
 local workspace = game:GetService("Workspace")
@@ -1038,7 +937,6 @@ getgenv().PlayerDead = false
 getgenv().CombatEquipped = false
 getgenv().TargetIndex = 1
 
--- Danh sách boss
 local BossList = {
     "AizenBoss",
     "GojoBoss",
@@ -1047,8 +945,6 @@ local BossList = {
     "YujiBoss",
     "AlucardBoss",
 }
-
-getgenv().VisitedBosses = {}
 
 local function IsAllBossMode()
     local filter = (getgenv().NPCFilter or ""):lower():match("^%s*(.-)%s*$")
@@ -1088,6 +984,7 @@ if player.Character then
 end
 
 local function EnableHover(rootPart)
+    if not rootPart then return end
     if not rootPart:FindFirstChild("BodyPosition") then
         local bp = Instance.new("BodyPosition")
         bp.Name = "BodyPosition"
@@ -1100,7 +997,8 @@ local function EnableHover(rootPart)
 end
 
 local function DisableHover(rootPart)
-    local bp = rootPart and rootPart:FindFirstChild("BodyPosition")
+    if not rootPart then return end
+    local bp = rootPart:FindFirstChild("BodyPosition")
     if bp then bp:Destroy() end
 end
 
@@ -1184,7 +1082,6 @@ local function TryEquipCombat()
     if getgenv().UseKey2 then table.insert(keysToTry, Enum.KeyCode.Two) end
     if getgenv().UseKey3 then table.insert(keysToTry, Enum.KeyCode.Three) end
 
-    -- Không chọn vũ khí nào thì không làm gì cả
     if #keysToTry == 0 then return end
 
     for _, keyCode in ipairs(keysToTry) do
@@ -1194,7 +1091,6 @@ local function TryEquipCombat()
         task.wait(0.3)
     end
 
-    -- Có gọi vũ khí thì mới ấn G
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
     task.wait(0.05)
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
@@ -1229,136 +1125,73 @@ end
 
 -- ===================== ALLBOSS LOGIC =====================
 
-local function GetBossNPC(bossName)
-    local npcsFolder = workspace:FindFirstChild("NPCs")
-    if not npcsFolder then return nil, nil end
-    local npc = npcsFolder:FindFirstChild(bossName)
-    if not npc then return nil, nil end
-    local h = npc:FindFirstChild("Humanoid")
-    local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
-    if h and h.Health > 0 and primaryPart then
-        return npc, h
-    end
-    return nil, nil
-end
-
--- Lấy boss tiếp theo chưa ghé, gần nhất, bỏ qua boss hiện tại đang đánh.
--- Nếu tất cả boss sống đều đã ghé và chỉ còn đúng 1 boss sống -> bay đến boss đó.
-local function GetNextBossTarget(currentBossName)
-    if not hrp then return nil, nil, nil end
-
-    local aliveBosses = {}
-    for _, bossName in ipairs(BossList) do
-        local npc, h = GetBossNPC(bossName)
-        if npc then
-            table.insert(aliveBosses, {name = bossName, npc = npc, humanoid = h})
-        end
-    end
-
-    if #aliveBosses == 0 then return nil, nil, nil end
-
-    -- Lọc boss chưa ghé và không phải boss đang đánh
-    local unvisited = {}
-    for _, entry in ipairs(aliveBosses) do
-        if not getgenv().VisitedBosses[entry.name] and entry.name ~= currentBossName then
-            table.insert(unvisited, entry)
-        end
-    end
-
-    -- Còn boss chưa ghé -> chọn gần nhất
-    if #unvisited > 0 then
-        local best, bestDist = nil, math.huge
-        for _, entry in ipairs(unvisited) do
-            local pp = entry.npc.PrimaryPart or entry.npc:FindFirstChild("HumanoidRootPart")
-            if pp then
-                local d = (hrp.Position - pp.Position).Magnitude
-                if d < bestDist then
-                    bestDist = d
-                    best = entry
-                end
-            end
-        end
-        if best then return best.npc, best.humanoid, best.name end
-    end
-
-    -- Tất cả boss sống đều đã ghé: chỉ bay đến nếu đúng 1 boss sống và khác boss hiện tại
-    if #aliveBosses == 1 and aliveBosses[1].name ~= currentBossName then
-        local entry = aliveBosses[1]
-        return entry.npc, entry.humanoid, entry.name
-    end
-
-    return nil, nil, nil
-end
-
-local function AllBossDeadOrVisited()
-    for _, bossName in ipairs(BossList) do
-        local npc, _ = GetBossNPC(bossName)
-        if npc and not getgenv().VisitedBosses[bossName] then
-            return false -- còn boss sống chưa ghé
-        end
-    end
-    -- Kiểm tra còn boss nào sống không
-    for _, bossName in ipairs(BossList) do
-        local npc, _ = GetBossNPC(bossName)
-        if npc then return false end
-    end
-    return true
-end
-
 local function HoverOnNPC_AllBoss()
     if not hrp or getgenv().PlayerDead then return end
-
-    getgenv().VisitedBosses = {}
-    local currentBossName = nil
-    local target, humanoid = nil, nil
 
     while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
         if not hrp then task.wait(0.5) continue end
 
-        local newTarget, newHumanoid, newBossName = GetNextBossTarget(currentBossName)
+        local npcsFolder = workspace:FindFirstChild("NPCs")
+        if not npcsFolder then task.wait(1) continue end
 
-        if not newTarget then
-            HoldHover()
-            task.wait(1)
-            if AllBossDeadOrVisited() then
-                -- Tất cả boss đã tiêu diệt, không còn ai sống -> farm mob thường
-                break
+        -- Tìm boss gần nhất, dùng GetPivot để lấy vị trí, kiểm tra Health > 0
+        local target, targetHumanoid = nil, nil
+        local bestDist = math.huge
+
+        for _, bossName in ipairs(BossList) do
+            local npc = npcsFolder:FindFirstChild(bossName)
+            if npc and npc.ClassName == "Model" and hrp then
+                local h = npc:FindFirstChildWhichIsA("Humanoid", true)
+                if h and h.Health > 0 then
+                    local pos = npc:GetPivot().Position
+                    local d = (hrp.Position - pos).Magnitude
+                    if d < bestDist then
+                        bestDist = d
+                        target = npc
+                        targetHumanoid = h
+                    end
+                end
             end
-            continue
         end
 
-        -- Chuyển sang boss mới nếu khác boss hiện tại
-        if newBossName ~= currentBossName then
-            currentBossName = newBossName
-            target = newTarget
-            humanoid = newHumanoid
-            getgenv().VisitedBosses[currentBossName] = true
+        -- Không có boss nào -> farm mob thường
+        if not target then
+            if hrp then
+                local nearestNPC = GetNearestNPCByFilter("", math.huge)
+                if nearestNPC then
+                    local pp = nearestNPC.PrimaryPart or nearestNPC:FindFirstChild("HumanoidRootPart")
+                    if pp and hrp then
+                        EnableHover(hrp)
+                        local bp = hrp:FindFirstChild("BodyPosition")
+                        if bp then bp.Position = pp.Position + Vector3.new(0, HoverHeight, 0) end
+                        hrp.CFrame = CFrame.new(hrp.Position, pp.Position)
+                        hrp.Velocity = Vector3.zero
+                        hrp.AssemblyLinearVelocity = Vector3.zero
+                    end
+                else
+                    HoldHover()
+                end
+            end
+            task.wait(0.5)
+            continue
         end
 
         TryEquipCombat()
         EnableHover(hrp)
-        local bp = hrp:FindFirstChild("BodyPosition")
 
-        -- Vòng lặp bay đến và đánh boss hiện tại
+        -- Bay đến và đánh boss, thoát ngay khi Health <= 0
         while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
             if not hrp then break end
+            if not target.Parent then break end
 
-            -- Kiểm tra có boss chưa ghé mới xuất hiện không (ưu tiên hơn)
-            local checkTarget, _, checkName = GetNextBossTarget(currentBossName)
-            if checkTarget and checkName ~= currentBossName then
-                -- Boss mới chưa ghé xuất hiện -> thoát để chuyển sang boss mới
-                break
-            end
+            -- Thoát ngay khi Health về 0, không bám theo nữa
+            if not targetHumanoid or targetHumanoid.Health <= 0 then break end
 
-            -- Kiểm tra boss hiện tại còn sống không
-            local pp = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
-            if not (humanoid and humanoid.Health > 0 and pp) then
-                break
-            end
-
-            local desiredPos = pp.Position + Vector3.new(0, HoverHeight, 0)
+            local pos = target:GetPivot().Position
+            local desiredPos = pos + Vector3.new(0, HoverHeight, 0)
+            local bp = hrp:FindFirstChild("BodyPosition")
             if bp then bp.Position = desiredPos end
-            hrp.CFrame = CFrame.new(hrp.Position, pp.Position)
+            hrp.CFrame = CFrame.new(hrp.Position, pos)
             hrp.Velocity = Vector3.zero
             hrp.AssemblyLinearVelocity = Vector3.zero
             task.wait(0.01)
@@ -1369,7 +1202,7 @@ local function HoverOnNPC_AllBoss()
             return
         end
 
-        task.wait(0.3)
+        task.wait(0.1)
     end
 
     DisableHover(hrp)
@@ -1481,7 +1314,6 @@ Farm:AddTextbox({
     Callback = function(value)
         getgenv().NPCFilter = value or ""
         getgenv().TargetIndex = 1
-        getgenv().VisitedBosses = {}
     end
 })
 
@@ -1520,6 +1352,8 @@ Farm:AddToggle({
         getgenv().UseKey3 = value
     end
 })
+
+
 
 getgenv().AutoSkill = false
 getgenv().UseZ = false
