@@ -735,12 +735,16 @@ local BossList = {
     "SukunaBoss",
     "YujiBoss",
     "AlucardBoss",
-	--"YamatoBoss",
 }
 
 local function IsAllBossMode()
     local filter = (getgenv().NPCFilter or ""):lower():match("^%s*(.-)%s*$")
-    return filter == "allboss"
+    return filter == "allboss" or filter:sub(1, 7) == "allboss"
+end
+
+local function GetAllBossMobFilter()
+    local filter = (getgenv().NPCFilter or ""):lower():match("^%s*(.-)%s*$")
+    return filter:match("^allboss%s+(.+)$") or ""
 end
 
 local function GetFilterList()
@@ -815,7 +819,7 @@ local function GetNearestNPCByFilter(filter, maxDistance)
     local npcsFolder = workspace:FindFirstChild("NPCs")
     if not npcsFolder then return nil, nil end
 
-    maxDistance = maxDistance or 2000
+    maxDistance = maxDistance or math.huge
     local target, humanoid = nil, nil
     local closestDistance = math.huge
 
@@ -845,10 +849,10 @@ end
 local function GetNearestNPC(maxDistance)
     local list = GetFilterList()
     if #list == 0 then
-        return GetNearestNPCByFilter("", maxDistance)
+        return GetNearestNPCByFilter("", maxDistance or 2000)
     end
     for _, filter in ipairs(list) do
-        local target, humanoid = GetNearestNPCByFilter(filter, maxDistance)
+        local target, humanoid = GetNearestNPCByFilter(filter, math.huge)
         if target then
             return target, humanoid
         end
@@ -866,7 +870,17 @@ local function HoldHover()
 end
 
 local function TryEquipCombat()
-    if getgenv().CombatEquipped then return end
+    if getgenv().CombatEquipped then
+        return
+    end
+
+    local char = player.Character
+    local tool = char and char:FindFirstChildWhichIsA("Tool")
+
+    if tool then
+        getgenv().CombatEquipped = true
+        return
+    end
 
     local VirtualInputManager = game:GetService("VirtualInputManager")
     local keysToTry = {}
@@ -874,7 +888,9 @@ local function TryEquipCombat()
     if getgenv().UseKey2 then table.insert(keysToTry, Enum.KeyCode.Two) end
     if getgenv().UseKey3 then table.insert(keysToTry, Enum.KeyCode.Three) end
 
-    if #keysToTry == 0 then return end
+    if #keysToTry == 0 then
+        return
+    end
 
     for _, keyCode in ipairs(keysToTry) do
         VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
@@ -941,7 +957,6 @@ local function HoverOnNPC_AllBoss()
         local npcsFolder = workspace:FindFirstChild("NPCs")
         if not npcsFolder then task.wait(1) continue end
 
-        -- Tìm boss gần nhất, dùng GetPivot để lấy vị trí, kiểm tra Health > 0
         local target, targetHumanoid = nil, nil
         local bestDist = math.huge
 
@@ -961,34 +976,57 @@ local function HoverOnNPC_AllBoss()
             end
         end
 
-        -- Không có boss nào -> farm mob thường cho đến khi boss xuất hiện
         if not target then
-            local mobTarget, _ = GetNearestNPCByFilter("", math.huge)
-            if mobTarget then
-                local pp = mobTarget.PrimaryPart or mobTarget:FindFirstChild("HumanoidRootPart")
-                if pp and hrp then
-                    EnableHover(hrp)
-                    while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
-                        if not hrp then break end
+            local mobFilter = GetAllBossMobFilter()
+            local npcsFolder2 = workspace:FindFirstChild("NPCs")
+            local mobTarget = nil
+            local mobBestDist = math.huge
 
-                        -- Boss xuất hiện -> thoát để vòng ngoài chọn boss
-                        if HasAliveBoss() then break end
-
-                        -- Mob chết -> thoát để vòng ngoài tìm mob mới
-                        local mobH = mobTarget:FindFirstChild("Humanoid")
-                        if not mobH or mobH.Health <= 0 then break end
-
-                        pp = mobTarget.PrimaryPart or mobTarget:FindFirstChild("HumanoidRootPart")
-                        if not pp then break end
-
-                        local desiredPos = pp.Position + Vector3.new(0, HoverHeight, 0)
-                        local bp = hrp:FindFirstChild("BodyPosition")
-                        if bp then bp.Position = desiredPos end
-                        hrp.CFrame = CFrame.new(hrp.Position, pp.Position)
-                        hrp.Velocity = Vector3.zero
-                        hrp.AssemblyLinearVelocity = Vector3.zero
-                        task.wait(0.01)
+            if npcsFolder2 and hrp and mobFilter ~= "" then
+                for _, npc in ipairs(npcsFolder2:GetChildren()) do
+                    if npc.ClassName == "Model" then
+                        local h = npc:FindFirstChildWhichIsA("Humanoid", true)
+                        if h and h.Health > 0 then
+                            local displayName = h.DisplayName ~= "" and h.DisplayName or npc.Name
+                            local score = FuzzyScore(mobFilter, displayName)
+                            if score >= 0 then
+                                local pos = npc:GetPivot().Position
+                                local d = (hrp.Position - pos).Magnitude
+                                if d < mobBestDist then
+                                    mobBestDist = d
+                                    mobTarget = npc
+                                end
+                            end
+                        end
                     end
+                end
+            end
+
+            if mobTarget then
+				TryEquipCombat()
+                EnableHover(hrp)
+                local lastBossCheck = 0
+                while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
+                    if not hrp then break end
+
+                    local now = tick()
+                    if now - lastBossCheck >= 0.5 then
+                        lastBossCheck = now
+                        if HasAliveBoss() then break end
+                    end
+
+                    local mobH = mobTarget:FindFirstChildWhichIsA("Humanoid", true)
+                    if not mobH or mobH.Health <= 0 then break end
+                    if not mobTarget.Parent then break end
+
+                    local pos = mobTarget:GetPivot().Position
+                    local desiredPos = pos + Vector3.new(0, HoverHeight, 0)
+                    local bp = hrp:FindFirstChild("BodyPosition")
+                    if bp then bp.Position = desiredPos end
+                    hrp.CFrame = CFrame.new(hrp.Position, pos)
+                    hrp.Velocity = Vector3.zero
+                    hrp.AssemblyLinearVelocity = Vector3.zero
+                    task.wait(0.01)
                 end
             else
                 HoldHover()
@@ -1000,7 +1038,6 @@ local function HoverOnNPC_AllBoss()
         TryEquipCombat()
         EnableHover(hrp)
 
-        -- Bay đến và đánh boss, thoát ngay khi Health <= 0
         while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
             if not hrp then break end
             if not target.Parent then break end
@@ -1062,8 +1099,6 @@ local function HoverOnNPC()
         if not hrp then break end
         primaryPart = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
         if not primaryPart then break end
-        local distance = (hrp.Position - primaryPart.Position).Magnitude
-        if distance > 2000 then break end
         local desiredPos = primaryPart.Position + Vector3.new(0, HoverHeight, 0)
         if bp then bp.Position = desiredPos end
         hrp.CFrame = CFrame.new(hrp.Position, primaryPart.Position)
@@ -1083,7 +1118,7 @@ local function HoverOnNPC()
         HoldHover()
         while getgenv().AutoNPC and not getgenv().PlayerDead do
             task.wait(0.5)
-            local newTarget, _ = GetNearestNPC(5000)
+            local newTarget, _ = GetNearestNPC()
             if newTarget then break end
         end
     else
@@ -1129,7 +1164,7 @@ Farm:AddToggle({
 Farm:AddTextbox({
     Name = "Đánh theo tên",
     Default = "",
-    Placeholder = "allboss | hoặc tên: Go Yu Sen",
+    Placeholder = "allboss | allboss Cur | hoặc tên: Go Yu Sen",
     Callback = function(value)
         getgenv().NPCFilter = value or ""
         getgenv().TargetIndex = 1
@@ -1171,7 +1206,6 @@ Farm:AddToggle({
         getgenv().UseKey3 = value
     end
 })
-
 
 
 getgenv().AutoSkill = false
