@@ -876,26 +876,25 @@ local function MoveTowards(targetPos)
     local distance = (hrp.Position - desiredPos).Magnitude
 
     if distance > 500 then
-        -- Xa -> di chuyển từng bước theo tốc độ
         local direction = desiredPos - hrp.Position
         local dt = task.wait(0.01)
         local step = math.min(MoveSpeed * dt, distance)
         local nextPos = hrp.Position + direction.Unit * step
         hrp.Velocity = Vector3.zero
         hrp.AssemblyLinearVelocity = Vector3.zero
-        local lookAt = Vector3.new(targetPos.X, nextPos.Y, targetPos.Z)
-        if (lookAt - nextPos).Magnitude > 0.1 then
-            hrp.CFrame = CFrame.new(nextPos, lookAt)
+        if (targetPos - nextPos).Magnitude > 0.1 then
+            hrp.CFrame = CFrame.new(nextPos, targetPos)
         else
             hrp.CFrame = CFrame.new(nextPos)
         end
         local bp = hrp:FindFirstChild("BodyPosition")
         if bp then bp.Position = nextPos end
     else
-        -- Gần -> dùng logic gốc, đứng yên xoay mặt về mục tiêu
         local bp = hrp:FindFirstChild("BodyPosition")
         if bp then bp.Position = desiredPos end
-        hrp.CFrame = CFrame.new(hrp.Position, targetPos)
+        if (targetPos - hrp.Position).Magnitude > 0.1 then
+            hrp.CFrame = CFrame.new(hrp.Position, targetPos)
+        end
         hrp.Velocity = Vector3.zero
         hrp.AssemblyLinearVelocity = Vector3.zero
         task.wait(0.01)
