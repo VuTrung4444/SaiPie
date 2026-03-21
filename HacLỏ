@@ -1272,7 +1272,7 @@ task.spawn(function()
 
         for _, keyCode in ipairs(keys) do
             if not getgenv().AutoSkill then break end
-            if not HasNearbyMob(1000) then break end
+            if not HasNearbyMob(100) then break end
             SendKey(keyCode)
             task.wait(0.5)
         end
