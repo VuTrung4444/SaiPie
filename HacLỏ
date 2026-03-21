@@ -97,225 +97,6 @@ Ect:AddToggle({
 	end)
 
 
-local Players = game:GetService("Players")
-local RunService = game:GetService("RunService")
-local LocalPlayer = Players.LocalPlayer
-
-getgenv().ESPenabled = false
-local ESPDistance = true
-local ESPTextSize = 18
-
-local function createBillboard(adornee, text, parent)
-    local billboard = Instance.new("BillboardGui")
-    billboard.Name = "ESP"
-    billboard.Adornee = adornee
-    billboard.Size = UDim2.new(0, 200, 0, 50)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.AlwaysOnTop = true
-    billboard.Parent = parent
-
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 0, 0)
-    label.TextStrokeTransparency = 0
-    label.Font = Enum.Font.SourceSansBold
-    label.TextScaled = false
-    label.TextSize = ESPTextSize
-    label.Text = text
-    label.Parent = billboard
-
-    return billboard, label
-end
-
-local function createESP(player)
-    if player == LocalPlayer then return end
-    if not player.Character or not player.Character:FindFirstChild("HumanoidRootPart") then return end
-
-    if player.Character:FindFirstChild("ESP") then
-        player.Character.ESP:Destroy()
-    end
-
-    local root = player.Character:WaitForChild("HumanoidRootPart")
-    local billboard, textLabel = createBillboard(root, player.Name, player.Character)
-
-    task.spawn(function()
-        while getgenv().ESPenabled 
-        and player.Character 
-        and player.Character:FindFirstChild("HumanoidRootPart") do
-
-            local distance = (root.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-            
-            if ESPDistance then
-                textLabel.Text = player.Name .. " | " .. math.floor(distance) .. " studs"
-            else
-                textLabel.Text = player.Name
-            end
-
-            task.wait(2)
-        end
-
-        if billboard then billboard:Destroy() end
-    end)
-end
-
-local MobNames = {
-    "Egg Jaw",
-    "Mantis Curse",
-    "Monk of The Lake",
-}
-
-local function createMobESP(mob)
-    if not mob or not mob:FindFirstChild("HumanoidRootPart") then return end
-
-    if mob:FindFirstChild("ESP") then
-        mob.ESP:Destroy()
-    end
-
-    local root = mob:WaitForChild("HumanoidRootPart")
-    local billboard, textLabel = createBillboard(root, mob.Name, mob)
-
-    task.spawn(function()
-        while getgenv().ESPenabled 
-        and mob 
-        and mob:FindFirstChild("HumanoidRootPart") do
-
-            local distance = (root.Position - LocalPlayer.Character.HumanoidRootPart.Position).Magnitude
-
-            if ESPDistance then
-                textLabel.Text = mob.Name .. " | " .. math.floor(distance) .. " studs"
-            else
-                textLabel.Text = mob.Name
-            end
-
-            task.wait(2)
-        end
-
-        if billboard then billboard:Destroy() end
-    end)
-end
-
-local function updateAllMobsESP()
-    for _, mobName in ipairs(MobNames) do
-        local mobFolder = workspace:FindFirstChild("Objects")
-            and workspace.Objects:FindFirstChild("Mobs")
-
-        if mobFolder and mobFolder:FindFirstChild(mobName) then
-            local mob = mobFolder[mobName]
-            createMobESP(mob)
-        end
-    end
-end
-
-local function updateAllPlayersESP()
-    for _, plr in pairs(Players:GetPlayers()) do
-        createESP(plr)
-    end
-end
-
-
-
-local function createDropESP(drop)
-    if not drop or not (drop:IsA("Model") or drop:IsA("BasePart")) then return end
-    
-    local name = tostring(drop.Name)
-    if name:find("|ChestGroup") or name:find("Talisman") then
-        return
-    end
-
-    local root = drop:FindFirstChild("HumanoidRootPart") or drop:FindFirstChildWhichIsA("BasePart")
-    if not root then return end
-
-    if drop:FindFirstChild("ESP") then
-        drop.ESP:Destroy()
-    end
-
-    local billboard, textLabel = createBillboard(root, drop.Name, drop)
-
-    task.spawn(function()
-        while getgenv().ESPenabled 
-        and drop
-        and (drop:FindFirstChild("HumanoidRootPart") or drop:FindFirstChildWhichIsA("BasePart")) do
-
-            local pos = root.Position
-            local coord = string.format("(%.1f, %.1f, %.1f)", pos.X, pos.Y, pos.Z)
-
-            textLabel.Text = drop.Name .. " | " .. coord
-
-            task.wait(2)
-        end
-
-        if billboard then billboard:Destroy() end
-    end)
-end
-
-
-local function updateAllDropsESP()
-    local dropFolder = workspace:FindFirstChild("Objects")
-        and workspace.Objects:FindFirstChild("Drops")
-
-    if dropFolder then
-        for _, drop in pairs(dropFolder:GetChildren()) do
-            createDropESP(drop)
-        end
-    end
-end
-
-
-
-Players.PlayerAdded:Connect(function(player)
-    if getgenv().ESPenabled then
-        player.CharacterAdded:Wait()
-        createESP(player)
-    end
-end)
-
-Ect:AddToggle({
-    Name = "ESP",
-    Flag = "ESP_Toggle",
-    Callback = function(state)
-        getgenv().ESPenabled = state
-
-        if state then
-            updateAllPlayersESP()
-            updateAllMobsESP()
-            updateAllDropsESP()
-        else
-
-
-            for _, plr in pairs(Players:GetPlayers()) do
-                if plr.Character and plr.Character:FindFirstChild("ESP") then
-                    plr.Character.ESP:Destroy()
-                end
-            end
-
-
-            for _, mobName in ipairs(MobNames) do
-                local mobFolder = workspace:FindFirstChild("Objects")
-                    and workspace.Objects:FindFirstChild("Mobs")
-
-                if mobFolder and mobFolder:FindFirstChild(mobName) then
-                    local mob = mobFolder[mobName]
-                    if mob:FindFirstChild("ESP") then
-                        mob.ESP:Destroy()
-                    end
-                end
-            end
-
-
-            local dropFolder = workspace:FindFirstChild("Objects")
-                and workspace.Objects:FindFirstChild("Drops")
-
-            if dropFolder then
-                for _, drop in pairs(dropFolder:GetChildren()) do
-                    if drop:FindFirstChild("ESP") then
-                        drop.ESP:Destroy()
-                    end
-                end
-            end
-        end
-    end
-})
 
 Ect:AddButton({
     Name = "Dịch chuyển đến cổng",
@@ -377,6 +158,7 @@ Ect:AddButton({
         end)
     end
 })
+
 
 Ect:AddButton({
     Name = "Fly",
@@ -944,7 +726,7 @@ local BossList = {
     "SukunaBoss",
     "YujiBoss",
     "AlucardBoss",
-	"YamatoBoss",
+	--"YamatoBoss",
 }
 
 local function IsAllBossMode()
@@ -1126,6 +908,21 @@ end
 
 -- ===================== ALLBOSS LOGIC =====================
 
+local function HasAliveBoss()
+    local npcsFolder = workspace:FindFirstChild("NPCs")
+    if not npcsFolder then return false end
+    for _, bossName in ipairs(BossList) do
+        local npc = npcsFolder:FindFirstChild(bossName)
+        if npc and npc.ClassName == "Model" then
+            local h = npc:FindFirstChildWhichIsA("Humanoid", true)
+            if h and h.Health > 0 then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 local function HoverOnNPC_AllBoss()
     if not hrp or getgenv().PlayerDead then return end
 
@@ -1155,25 +952,39 @@ local function HoverOnNPC_AllBoss()
             end
         end
 
-        -- Không có boss nào -> farm mob thường
+        -- Không có boss nào -> farm mob thường cho đến khi boss xuất hiện
         if not target then
-            if hrp then
-                local nearestNPC = GetNearestNPCByFilter("", math.huge)
-                if nearestNPC then
-                    local pp = nearestNPC.PrimaryPart or nearestNPC:FindFirstChild("HumanoidRootPart")
-                    if pp and hrp then
-                        EnableHover(hrp)
+            local mobTarget, _ = GetNearestNPCByFilter("", math.huge)
+            if mobTarget then
+                local pp = mobTarget.PrimaryPart or mobTarget:FindFirstChild("HumanoidRootPart")
+                if pp and hrp then
+                    EnableHover(hrp)
+                    while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
+                        if not hrp then break end
+
+                        -- Boss xuất hiện -> thoát để vòng ngoài chọn boss
+                        if HasAliveBoss() then break end
+
+                        -- Mob chết -> thoát để vòng ngoài tìm mob mới
+                        local mobH = mobTarget:FindFirstChild("Humanoid")
+                        if not mobH or mobH.Health <= 0 then break end
+
+                        pp = mobTarget.PrimaryPart or mobTarget:FindFirstChild("HumanoidRootPart")
+                        if not pp then break end
+
+                        local desiredPos = pp.Position + Vector3.new(0, HoverHeight, 0)
                         local bp = hrp:FindFirstChild("BodyPosition")
-                        if bp then bp.Position = pp.Position + Vector3.new(0, HoverHeight, 0) end
+                        if bp then bp.Position = desiredPos end
                         hrp.CFrame = CFrame.new(hrp.Position, pp.Position)
                         hrp.Velocity = Vector3.zero
                         hrp.AssemblyLinearVelocity = Vector3.zero
+                        task.wait(0.01)
                     end
-                else
-                    HoldHover()
                 end
+            else
+                HoldHover()
+                task.wait(0.5)
             end
-            task.wait(0.5)
             continue
         end
 
@@ -1184,8 +995,6 @@ local function HoverOnNPC_AllBoss()
         while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
             if not hrp then break end
             if not target.Parent then break end
-
-            -- Thoát ngay khi Health về 0, không bám theo nữa
             if not targetHumanoid or targetHumanoid.Health <= 0 then break end
 
             local pos = target:GetPivot().Position
