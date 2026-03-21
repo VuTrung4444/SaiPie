@@ -944,6 +944,7 @@ local BossList = {
     "SukunaBoss",
     "YujiBoss",
     "AlucardBoss",
+	"YamatoBoss",
 }
 
 local function IsAllBossMode()
