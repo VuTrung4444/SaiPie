@@ -1183,6 +1183,8 @@ local function TryEquipCombat()
     if getgenv().UseKey1 then table.insert(keysToTry, Enum.KeyCode.One) end
     if getgenv().UseKey2 then table.insert(keysToTry, Enum.KeyCode.Two) end
     if getgenv().UseKey3 then table.insert(keysToTry, Enum.KeyCode.Three) end
+
+    -- Không chọn vũ khí nào thì không làm gì cả
     if #keysToTry == 0 then return end
 
     for _, keyCode in ipairs(keysToTry) do
@@ -1192,6 +1194,7 @@ local function TryEquipCombat()
         task.wait(0.3)
     end
 
+    -- Có gọi vũ khí thì mới ấn G
     VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
     task.wait(0.05)
     VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
