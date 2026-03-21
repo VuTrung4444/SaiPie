@@ -718,7 +718,7 @@ MiscSection:AddButton({
 
 
 local HoverHeight = 8
-local MoveSpeed = 100 -- studs/giây, điều chỉnh tốc độ di chuyển tại đây
+local MoveSpeed = 200 -- studs/giây, điều chỉnh tốc độ di chuyển tại đây
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local workspace = game:GetService("Workspace")
@@ -871,26 +871,31 @@ local function HoldHover()
     end
 end
 
-local function MoveTowards(targetPos, lookPos)
+local function MoveTowards(targetPos)
     if not hrp then return end
-    local startPos = hrp.Position
     local desiredPos = targetPos + Vector3.new(0, HoverHeight, 0)
-    local delta = desiredPos - startPos
-    local duration = delta.Magnitude / MoveSpeed
-    local startTime = tick()
+    local distance = (hrp.Position - desiredPos).Magnitude
 
-    while tick() - startTime < duration do
-        if not hrp then return end
-        if not getgenv().AutoNPC or getgenv().PlayerDead then return end
-        local t = math.min((tick() - startTime) / duration, 1)
-        local nextPos = startPos + delta * t
+    if distance > 50 then
+        -- Xa -> kiểm soát tốc độ bằng step
+        local direction = desiredPos - hrp.Position
+        local dt = task.wait(0.01)
+        local step = math.min(MoveSpeed * dt, distance)
+        local nextPos = hrp.Position + direction.Unit * step
         hrp.Velocity = Vector3.zero
-        hrp.CFrame = CFrame.new(nextPos, nextPos + (lookPos - nextPos) * Vector3.new(1, 0, 1))
-        RunService.Heartbeat:Wait()
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        hrp.CFrame = CFrame.new(nextPos, Vector3.new(targetPos.X, nextPos.Y, targetPos.Z))
+        local bp = hrp:FindFirstChild("BodyPosition")
+        if bp then bp.Position = nextPos end
+    else
+        -- Gần -> dùng BodyPosition như cũ
+        local bp = hrp:FindFirstChild("BodyPosition")
+        if bp then bp.Position = desiredPos end
+        hrp.CFrame = CFrame.new(hrp.Position, Vector3.new(targetPos.X, hrp.Position.Y, targetPos.Z))
+        hrp.Velocity = Vector3.zero
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        task.wait(0.01)
     end
-
-    hrp.Velocity = Vector3.zero
-    hrp.CFrame = CFrame.new(desiredPos, desiredPos + (lookPos - desiredPos) * Vector3.new(1, 0, 1))
 end
 
 local function TryEquipCombat()
@@ -1038,8 +1043,7 @@ local function HoverOnNPC_AllBoss()
                     if not mobH or mobH.Health <= 0 then break end
                     if not mobTarget.Parent then break end
 
-                    local pos = mobTarget:GetPivot().Position
-                    MoveTowards(pos, pos)
+                    MoveTowards(mobTarget:GetPivot().Position)
                 end
             else
                 HoldHover()
@@ -1056,8 +1060,7 @@ local function HoverOnNPC_AllBoss()
             if not target.Parent then break end
             if not targetHumanoid or targetHumanoid.Health <= 0 then break end
 
-            local pos = target:GetPivot().Position
-            MoveTowards(pos, pos)
+            MoveTowards(target:GetPivot().Position)
         end
 
         if not getgenv().AutoNPC or getgenv().PlayerDead or not IsAllBossMode() then
@@ -1104,7 +1107,7 @@ local function HoverOnNPC()
         if not hrp then break end
         primaryPart = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
         if not primaryPart then break end
-        MoveTowards(primaryPart.Position, primaryPart.Position)
+        MoveTowards(primaryPart.Position)
     end
 
     if not getgenv().AutoNPC or getgenv().PlayerDead then
