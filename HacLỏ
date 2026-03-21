@@ -717,7 +717,6 @@ MiscSection:AddButton({
 })
 
 
-```lua
 local HoverHeight = 8
 local MoveSpeed = 200 -- studs/giây, điều chỉnh tốc độ di chuyển tại đây
 local Players = game:GetService("Players")
