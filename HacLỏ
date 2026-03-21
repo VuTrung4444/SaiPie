@@ -1038,7 +1038,25 @@ getgenv().PlayerDead = false
 getgenv().CombatEquipped = false
 getgenv().TargetIndex = 1
 
+-- Danh sách boss
+local BossList = {
+    "AizenBoss",
+    "GojoBoss",
+    "JinwooBoss",
+    "SukunaBoss",
+    "YujiBoss",
+    "AlucardBoss",
+}
+
+getgenv().VisitedBosses = {}
+
+local function IsAllBossMode()
+    local filter = (getgenv().NPCFilter or ""):lower():match("^%s*(.-)%s*$")
+    return filter == "allboss"
+end
+
 local function GetFilterList()
+    if IsAllBossMode() then return {} end
     local filter = getgenv().NPCFilter or ""
     if filter == "" then return {} end
     local list = {}
@@ -1102,7 +1120,6 @@ local function FuzzyScore(query, name)
     return score
 end
 
-
 local function GetNearestNPCByFilter(filter, maxDistance)
     if not hrp then return nil, nil end
     local npcsFolder = workspace:FindFirstChild("NPCs")
@@ -1140,7 +1157,6 @@ local function GetNearestNPC(maxDistance)
     if #list == 0 then
         return GetNearestNPCByFilter("", maxDistance)
     end
-    -- Duyệt theo thứ tự ưu tiên, chọn mục tiêu đầu tiên tồn tại
     for _, filter in ipairs(list) do
         local target, humanoid = GetNearestNPCByFilter(filter, maxDistance)
         if target then
@@ -1208,8 +1224,163 @@ local function StartAttackLoop()
     end)
 end
 
+-- ===================== ALLBOSS LOGIC =====================
+
+local function GetBossNPC(bossName)
+    local npcsFolder = workspace:FindFirstChild("NPCs")
+    if not npcsFolder then return nil, nil end
+    local npc = npcsFolder:FindFirstChild(bossName)
+    if not npc then return nil, nil end
+    local h = npc:FindFirstChild("Humanoid")
+    local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
+    if h and h.Health > 0 and primaryPart then
+        return npc, h
+    end
+    return nil, nil
+end
+
+-- Lấy boss tiếp theo chưa ghé, gần nhất, bỏ qua boss hiện tại đang đánh.
+-- Nếu tất cả boss sống đều đã ghé và chỉ còn đúng 1 boss sống -> bay đến boss đó.
+local function GetNextBossTarget(currentBossName)
+    if not hrp then return nil, nil, nil end
+
+    local aliveBosses = {}
+    for _, bossName in ipairs(BossList) do
+        local npc, h = GetBossNPC(bossName)
+        if npc then
+            table.insert(aliveBosses, {name = bossName, npc = npc, humanoid = h})
+        end
+    end
+
+    if #aliveBosses == 0 then return nil, nil, nil end
+
+    -- Lọc boss chưa ghé và không phải boss đang đánh
+    local unvisited = {}
+    for _, entry in ipairs(aliveBosses) do
+        if not getgenv().VisitedBosses[entry.name] and entry.name ~= currentBossName then
+            table.insert(unvisited, entry)
+        end
+    end
+
+    -- Còn boss chưa ghé -> chọn gần nhất
+    if #unvisited > 0 then
+        local best, bestDist = nil, math.huge
+        for _, entry in ipairs(unvisited) do
+            local pp = entry.npc.PrimaryPart or entry.npc:FindFirstChild("HumanoidRootPart")
+            if pp then
+                local d = (hrp.Position - pp.Position).Magnitude
+                if d < bestDist then
+                    bestDist = d
+                    best = entry
+                end
+            end
+        end
+        if best then return best.npc, best.humanoid, best.name end
+    end
+
+    -- Tất cả boss sống đều đã ghé: chỉ bay đến nếu đúng 1 boss sống và khác boss hiện tại
+    if #aliveBosses == 1 and aliveBosses[1].name ~= currentBossName then
+        local entry = aliveBosses[1]
+        return entry.npc, entry.humanoid, entry.name
+    end
+
+    return nil, nil, nil
+end
+
+local function AllBossDeadOrVisited()
+    for _, bossName in ipairs(BossList) do
+        local npc, _ = GetBossNPC(bossName)
+        if npc and not getgenv().VisitedBosses[bossName] then
+            return false -- còn boss sống chưa ghé
+        end
+    end
+    -- Kiểm tra còn boss nào sống không
+    for _, bossName in ipairs(BossList) do
+        local npc, _ = GetBossNPC(bossName)
+        if npc then return false end
+    end
+    return true
+end
+
+local function HoverOnNPC_AllBoss()
+    if not hrp or getgenv().PlayerDead then return end
+
+    getgenv().VisitedBosses = {}
+    local currentBossName = nil
+    local target, humanoid = nil, nil
+
+    while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
+        if not hrp then task.wait(0.5) continue end
+
+        local newTarget, newHumanoid, newBossName = GetNextBossTarget(currentBossName)
+
+        if not newTarget then
+            HoldHover()
+            task.wait(1)
+            if AllBossDeadOrVisited() then
+                -- Tất cả boss đã tiêu diệt, không còn ai sống -> farm mob thường
+                break
+            end
+            continue
+        end
+
+        -- Chuyển sang boss mới nếu khác boss hiện tại
+        if newBossName ~= currentBossName then
+            currentBossName = newBossName
+            target = newTarget
+            humanoid = newHumanoid
+            getgenv().VisitedBosses[currentBossName] = true
+        end
+
+        TryEquipCombat()
+        EnableHover(hrp)
+        local bp = hrp:FindFirstChild("BodyPosition")
+
+        -- Vòng lặp bay đến và đánh boss hiện tại
+        while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
+            if not hrp then break end
+
+            -- Kiểm tra có boss chưa ghé mới xuất hiện không (ưu tiên hơn)
+            local checkTarget, _, checkName = GetNextBossTarget(currentBossName)
+            if checkTarget and checkName ~= currentBossName then
+                -- Boss mới chưa ghé xuất hiện -> thoát để chuyển sang boss mới
+                break
+            end
+
+            -- Kiểm tra boss hiện tại còn sống không
+            local pp = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
+            if not (humanoid and humanoid.Health > 0 and pp) then
+                break
+            end
+
+            local desiredPos = pp.Position + Vector3.new(0, HoverHeight, 0)
+            if bp then bp.Position = desiredPos end
+            hrp.CFrame = CFrame.new(hrp.Position, pp.Position)
+            hrp.Velocity = Vector3.zero
+            hrp.AssemblyLinearVelocity = Vector3.zero
+            task.wait(0.01)
+        end
+
+        if not getgenv().AutoNPC or getgenv().PlayerDead or not IsAllBossMode() then
+            DisableHover(hrp)
+            return
+        end
+
+        task.wait(0.3)
+    end
+
+    DisableHover(hrp)
+end
+
+-- ===================== MAIN HOVER LOOP =====================
+
 local function HoverOnNPC()
     if not hrp or getgenv().PlayerDead then return end
+
+    if IsAllBossMode() then
+        HoverOnNPC_AllBoss()
+        return
+    end
 
     local list = GetFilterList()
     local hasFilter = #list > 0
@@ -1251,12 +1422,10 @@ local function HoverOnNPC()
         return
     end
 
-    -- Target chết: chuyển sang mục tiêu tiếp theo trong danh sách
     if hasFilter then
         local index = getgenv().TargetIndex
         getgenv().TargetIndex = (index % #list) + 1
         HoldHover()
-        -- Chờ mục tiêu tiếp theo xuất hiện trong 5000 đơn vị
         while getgenv().AutoNPC and not getgenv().PlayerDead do
             task.wait(0.5)
             local newTarget, _ = GetNearestNPC(5000)
@@ -1266,6 +1435,8 @@ local function HoverOnNPC()
         HoldHover()
     end
 end
+
+-- ===================== MAIN TASK LOOP =====================
 
 StartAttackLoop()
 
@@ -1287,6 +1458,8 @@ task.spawn(function()
     end
 end)
 
+-- ===================== UI =====================
+
 Farm:AddToggle({
     Name = "Auto NPC",
     Default = false,
@@ -1301,17 +1474,18 @@ Farm:AddToggle({
 Farm:AddTextbox({
     Name = "Đánh theo tên",
     Default = "",
-    Placeholder = "Nhiều mục tiêu: Go Yu Sen",
+    Placeholder = "allboss | hoặc tên: Go Yu Sen",
     Callback = function(value)
         getgenv().NPCFilter = value or ""
         getgenv().TargetIndex = 1
+        getgenv().VisitedBosses = {}
     end
 })
 
 Farm:AddTextbox({
     Name = "Độ cao",
     Default = tostring(HoverHeight),
-    Placeholder = "Nhập độ cao (mặc định: 6)",
+    Placeholder = "Nhập độ cao (mặc định: 8)",
     Callback = function(value)
         local num = tonumber(value)
         if num then
