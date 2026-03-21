@@ -877,7 +877,7 @@ local function MoveTowards(targetPos)
 
     if distance > 50 then
         local direction = desiredPos - hrp.Position
-        local dt = task.wait(0.01)
+        local dt = 0.01 -- dt cố định thay vì dùng giá trị trả về từ task.wait
         local step = math.min(MoveSpeed * dt, distance)
         local nextPos = hrp.Position + direction.Unit * step
         hrp.Velocity = Vector3.zero
@@ -889,6 +889,7 @@ local function MoveTowards(targetPos)
         end
         local bp = hrp:FindFirstChild("BodyPosition")
         if bp then bp.Position = nextPos end
+        task.wait(dt)
     else
         local bp = hrp:FindFirstChild("BodyPosition")
         if bp then bp.Position = desiredPos end
