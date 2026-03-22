@@ -1270,6 +1270,8 @@ task.spawn(function()
         if getgenv().UseZ then table.insert(keys, Enum.KeyCode.Z) end
         if getgenv().UseX then table.insert(keys, Enum.KeyCode.X) end
         if getgenv().UseC then table.insert(keys, Enum.KeyCode.C) end
+		if getgenv().UseV then table.insert(keys, Enum.KeyCode.V) end
+		if getgenv().UseF then table.insert(keys, Enum.KeyCode.F) end
         if #keys == 0 then continue end
 
         for _, keyCode in ipairs(keys) do
