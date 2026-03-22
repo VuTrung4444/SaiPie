@@ -1217,301 +1217,170 @@ Farm:AddToggle({
 })
 
 getgenv().AutoSkill = false
-
 getgenv().UseZ = false
-
 getgenv().UseX = false
-
 getgenv().UseC = false
-
 getgenv().UseV = false
-
 getgenv().UseF = false
-
 getgenv().UseH = false
-
-
+getgenv().SkillRange = getgenv().SkillRange or 50
 
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
-
-
 local function SendKey(keyCode)
-
     VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
-
     task.wait(0.05)
-
     VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
-
 end
-
-
 
 local function HasNearbyMob(maxDistance)
-
+    maxDistance = maxDistance or 50
     local hrp = game:GetService("Players").LocalPlayer.Character
-
         and game:GetService("Players").LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-
     if not hrp then return false end
-
     local npcsFolder = workspace:FindFirstChild("NPCs")
-
     if not npcsFolder then return false end
-
     for _, npc in ipairs(npcsFolder:GetChildren()) do
-
         local h = npc:FindFirstChild("Humanoid")
-
         local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
-
         if h and h.Health > 0 and primaryPart then
-
             if (hrp.Position - primaryPart.Position).Magnitude <= maxDistance then
-
                 return true
-
             end
-
         end
-
     end
-
     return false
-
 end
-
-
 
 local function IsHOnCooldown()
-
     local mainFrame = game:GetService("Players").LocalPlayer.PlayerGui
-
         :FindFirstChild("CooldownUI")
-
         and game:GetService("Players").LocalPlayer.PlayerGui.CooldownUI
-
         :FindFirstChild("MainFrame")
-
     if not mainFrame then return false end
-
     return mainFrame:FindFirstChild("Cooldown_ObsHaki_Observation") ~= nil
-
 end
 
-
-
+-- Vòng lặp cho Z X C V F với khoảng cách tùy chỉnh
 task.spawn(function()
-
     while true do
-
         task.wait(1)
-
         if not getgenv().AutoSkill then continue end
-
-        if not HasNearbyMob(2000) then continue end
-
-
+        if not HasNearbyMob(getgenv().SkillRange) then continue end
 
         local keys = {}
-
         if getgenv().UseZ then table.insert(keys, Enum.KeyCode.Z) end
-
         if getgenv().UseX then table.insert(keys, Enum.KeyCode.X) end
-
         if getgenv().UseC then table.insert(keys, Enum.KeyCode.C) end
-
-		if getgenv().UseV then table.insert(keys, Enum.KeyCode.V) end
-
-		if getgenv().UseF then table.insert(keys, Enum.KeyCode.F) end
-
+        if getgenv().UseV then table.insert(keys, Enum.KeyCode.V) end
+        if getgenv().UseF then table.insert(keys, Enum.KeyCode.F) end
         if #keys == 0 then continue end
 
-
-
         for _, keyCode in ipairs(keys) do
-
             if not getgenv().AutoSkill then break end
-
-            if not HasNearbyMob(2000) then break end
-
+            if not HasNearbyMob(getgenv().SkillRange) then break end
             SendKey(keyCode)
-
             task.wait(0.5)
-
         end
-
     end
-
 end)
 
-
-
--- Vòng riêng cho phím H: quan sát cooldown UI
-
+-- Vòng riêng cho phím H: cố định khoảng cách 10
 task.spawn(function()
-
     while true do
-
         task.wait(0.5)
-
         if not getgenv().AutoSkill or not getgenv().UseH then continue end
-
         if not HasNearbyMob(10) then continue end
-
         if IsHOnCooldown() then continue end
-
-
-
-        -- Gửi phím H
 
         SendKey(Enum.KeyCode.H)
 
-
-
-        -- Chờ Cooldown_Obs xuất hiện (skill bắt đầu)
-
         local appeared = false
-
-        for _ = 1, 20 do -- chờ tối đa 10 giây
-
+        for _ = 1, 20 do
             task.wait(0.5)
-
             if IsHOnCooldown() then
-
                 appeared = true
-
                 break
-
             end
-
         end
-
-
-
-        -- Nếu cooldown xuất hiện thì chờ nó biến mất
 
         if appeared then
-
             while IsHOnCooldown() do
-
                 task.wait(0.5)
-
             end
-
         end
-
     end
-
 end)
 
-
+-- ===================== UI =====================
 
 AutoSkill:AddToggle({
-
     Name = "Auto Skill",
-
     Default = false,
-
     Callback = function(value)
-
         getgenv().AutoSkill = value
-
     end
+})
 
+AutoSkill:AddTextbox({
+    Name = "Giới hạn khoảng cách skill",
+    Default = tostring(getgenv().SkillRange),
+    Placeholder = "Nhập khoảng cách (mặc định: 50)",
+    Callback = function(value)
+        local num = tonumber(value)
+        if num then
+            getgenv().SkillRange = num
+        end
+    end
 })
 
 AutoSkill:AddToggle({
-
     Name = "Skill Z",
-
     Default = false,
-
     Callback = function(value)
-
         getgenv().UseZ = value
-
     end
-
 })
 
 AutoSkill:AddToggle({
-
     Name = "Skill X",
-
     Default = false,
-
     Callback = function(value)
-
         getgenv().UseX = value
-
     end
-
 })
 
 AutoSkill:AddToggle({
-
     Name = "Skill C",
-
     Default = false,
-
     Callback = function(value)
-
         getgenv().UseC = value
-
     end
-
 })
 
-
-
 AutoSkill:AddToggle({
-
     Name = "Skill V",
-
     Default = false,
-
     Callback = function(value)
-
         getgenv().UseV = value
-
     end
-
 })
 
-
-
 AutoSkill:AddToggle({
-
     Name = "Skill F",
-
     Default = false,
-
     Callback = function(value)
-
         getgenv().UseF = value
-
     end
-
 })
-
-
 
 AutoSkill:AddToggle({
-
     Name = "Skill H",
-
     Default = false,
-
     Callback = function(value)
-
         getgenv().UseH = value
-
     end
-
 })
-
 
 
 local Players = game:GetService("Players")
