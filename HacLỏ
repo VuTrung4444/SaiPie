@@ -1216,7 +1216,6 @@ Farm:AddToggle({
     end
 })
 
-```lua
 getgenv().AutoSkill = false
 getgenv().UseZ = false
 getgenv().UseX = false
@@ -1381,7 +1380,6 @@ AutoSkill:AddToggle({
         getgenv().UseH = value
     end
 })
-```
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
