@@ -1216,7 +1216,7 @@ Farm:AddToggle({
     end
 })
 
-
+```lua
 getgenv().AutoSkill = false
 getgenv().UseZ = false
 getgenv().UseX = false
@@ -1224,6 +1224,7 @@ getgenv().UseC = false
 getgenv().UseV = false
 getgenv().UseF = false
 getgenv().UseH = false
+getgenv().SkillRange = 50 -- Khoảng cách mặc định cho Z X C V F
 
 local VirtualInputManager = game:GetService("VirtualInputManager")
 
@@ -1260,30 +1261,31 @@ local function IsHOnCooldown()
     return mainFrame:FindFirstChild("Cooldown_ObsHaki_Observation") ~= nil
 end
 
+-- Vòng lặp cho Z X C V F với khoảng cách tùy chỉnh
 task.spawn(function()
     while true do
         task.wait(1)
         if not getgenv().AutoSkill then continue end
-        if not HasNearbyMob(2000) then continue end
+        if not HasNearbyMob(getgenv().SkillRange) then continue end
 
         local keys = {}
         if getgenv().UseZ then table.insert(keys, Enum.KeyCode.Z) end
         if getgenv().UseX then table.insert(keys, Enum.KeyCode.X) end
         if getgenv().UseC then table.insert(keys, Enum.KeyCode.C) end
-		if getgenv().UseV then table.insert(keys, Enum.KeyCode.V) end
-		if getgenv().UseF then table.insert(keys, Enum.KeyCode.F) end
+        if getgenv().UseV then table.insert(keys, Enum.KeyCode.V) end
+        if getgenv().UseF then table.insert(keys, Enum.KeyCode.F) end
         if #keys == 0 then continue end
 
         for _, keyCode in ipairs(keys) do
             if not getgenv().AutoSkill then break end
-            if not HasNearbyMob(2000) then break end
+            if not HasNearbyMob(getgenv().SkillRange) then break end
             SendKey(keyCode)
             task.wait(0.5)
         end
     end
 end)
 
--- Vòng riêng cho phím H: quan sát cooldown UI
+-- Vòng riêng cho phím H: cố định khoảng cách 10
 task.spawn(function()
     while true do
         task.wait(0.5)
@@ -1291,12 +1293,10 @@ task.spawn(function()
         if not HasNearbyMob(10) then continue end
         if IsHOnCooldown() then continue end
 
-        -- Gửi phím H
         SendKey(Enum.KeyCode.H)
 
-        -- Chờ Cooldown_Obs xuất hiện (skill bắt đầu)
         local appeared = false
-        for _ = 1, 20 do -- chờ tối đa 10 giây
+        for _ = 1, 20 do
             task.wait(0.5)
             if IsHOnCooldown() then
                 appeared = true
@@ -1304,7 +1304,6 @@ task.spawn(function()
             end
         end
 
-        -- Nếu cooldown xuất hiện thì chờ nó biến mất
         if appeared then
             while IsHOnCooldown() do
                 task.wait(0.5)
@@ -1313,6 +1312,8 @@ task.spawn(function()
     end
 end)
 
+-- ===================== UI =====================
+
 AutoSkill:AddToggle({
     Name = "Auto Skill",
     Default = false,
@@ -1320,6 +1321,19 @@ AutoSkill:AddToggle({
         getgenv().AutoSkill = value
     end
 })
+
+AutoSkill:AddTextbox({
+    Name = "Tầm skill",
+    Default = tostring(getgenv().SkillRange),
+    Placeholder = "Nhập khoảng cách (mặc định: 50)",
+    Callback = function(value)
+        local num = tonumber(value)
+        if num then
+            getgenv().SkillRange = num
+        end
+    end
+})
+
 AutoSkill:AddToggle({
     Name = "Skill Z",
     Default = false,
@@ -1327,6 +1341,7 @@ AutoSkill:AddToggle({
         getgenv().UseZ = value
     end
 })
+
 AutoSkill:AddToggle({
     Name = "Skill X",
     Default = false,
@@ -1334,6 +1349,7 @@ AutoSkill:AddToggle({
         getgenv().UseX = value
     end
 })
+
 AutoSkill:AddToggle({
     Name = "Skill C",
     Default = false,
@@ -1365,7 +1381,7 @@ AutoSkill:AddToggle({
         getgenv().UseH = value
     end
 })
-
+```
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
