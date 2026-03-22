@@ -1221,6 +1221,8 @@ getgenv().AutoSkill = false
 getgenv().UseZ = false
 getgenv().UseX = false
 getgenv().UseC = false
+getgenv().UseV = false
+getgenv().UseF = false
 getgenv().UseH = false
 
 local VirtualInputManager = game:GetService("VirtualInputManager")
@@ -1262,7 +1264,7 @@ task.spawn(function()
     while true do
         task.wait(1)
         if not getgenv().AutoSkill then continue end
-        if not HasNearbyMob(1000) then continue end
+        if not HasNearbyMob(100) then continue end
 
         local keys = {}
         if getgenv().UseZ then table.insert(keys, Enum.KeyCode.Z) end
@@ -1337,6 +1339,23 @@ AutoSkill:AddToggle({
         getgenv().UseC = value
     end
 })
+
+AutoSkill:AddToggle({
+    Name = "Skill V",
+    Default = false,
+    Callback = function(value)
+        getgenv().UseC = value
+    end
+})
+
+AutoSkill:AddToggle({
+    Name = "Skill F",
+    Default = false,
+    Callback = function(value)
+        getgenv().UseC = value
+    end
+})
+
 AutoSkill:AddToggle({
     Name = "Skill H",
     Default = false,
