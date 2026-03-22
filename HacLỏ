@@ -1264,7 +1264,7 @@ task.spawn(function()
     while true do
         task.wait(1)
         if not getgenv().AutoSkill then continue end
-        if not HasNearbyMob(100) then continue end
+        if not HasNearbyMob(2000) then continue end
 
         local keys = {}
         if getgenv().UseZ then table.insert(keys, Enum.KeyCode.Z) end
@@ -1276,7 +1276,7 @@ task.spawn(function()
 
         for _, keyCode in ipairs(keys) do
             if not getgenv().AutoSkill then break end
-            if not HasNearbyMob(100) then break end
+            if not HasNearbyMob(2000) then break end
             SendKey(keyCode)
             task.wait(0.5)
         end
