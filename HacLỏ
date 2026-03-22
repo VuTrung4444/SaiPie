@@ -1344,7 +1344,7 @@ AutoSkill:AddToggle({
     Name = "Skill V",
     Default = false,
     Callback = function(value)
-        getgenv().UseC = value
+        getgenv().UseV = value
     end
 })
 
@@ -1352,7 +1352,7 @@ AutoSkill:AddToggle({
     Name = "Skill F",
     Default = false,
     Callback = function(value)
-        getgenv().UseC = value
+        getgenv().UseF = value
     end
 })
 
