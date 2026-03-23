@@ -851,7 +851,7 @@ end
 local function GetNearestNPC(maxDistance)
     local list = GetFilterList()
     if #list == 0 then
-        return GetNearestNPCByFilter("", maxDistance or 2000)
+        return GetNearestNPCByFilter("", maxDistance or 1000)
     end
     for _, filter in ipairs(list) do
         local target, humanoid = GetNearestNPCByFilter(filter, math.huge)
@@ -876,7 +876,7 @@ local function MoveTowards(targetPos)
     local desiredPos = targetPos + Vector3.new(0, HoverHeight, 0)
     local distance = (hrp.Position - desiredPos).Magnitude
 
-    if distance > 50 then
+    if distance > 100 then
         local direction = desiredPos - hrp.Position
         local dt = 0.01 -- dt cố định thay vì dùng giá trị trả về từ task.wait
         local step = math.min(MoveSpeed * dt, distance)
