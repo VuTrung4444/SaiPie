@@ -1196,7 +1196,7 @@ Farm:AddToggle({
     Name = "Vũ khí 1",
     Default = false,
     Callback = function(value)
-        getgenv().seKey1 = value
+        getgenv().UseKey1 = value
     end
 })
 
