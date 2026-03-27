@@ -22,16 +22,14 @@ local IsOpen = Subs.Wait
 	local MainSection = MainTab:CreateSection({Name = "Farming"})
 	local Settings = MainTab:CreateSection({Name = "Settings"})
 	local Farm = MainTab:CreateSection({Name = "Farm", Side = "Left"})
-	local Ect = MainTab:CreateSection({Name = "Ect", Side = "Right"})
 	local AutoSkill = MainTab:CreateSection({Name = "AutoSkill", Side = "Right"})
 
 
 	--// Misc Tab \\--
 	local MiscTab = Window:CreateTab({Name = "Misc"})
 	local MiscSection = MiscTab:CreateSection({Name = "Misc"})
-	local SpeedAndJump = MiscTab:CreateSection({Name = "Speed&Jump[P]", Side = "Right"})
-	local Shop = MiscTab:CreateSection({Name = "Đổi item", Side = "Left"})
-	local Craft = MiscTab:CreateSection({Name = "Craft item", Side = "Right"})
+	local Tele = MiscTab:CreateSection({Name = "Teleport", Side = "Right"})
+	local SpeedAndJump = MiscTab:CreateSection({Name = "Speed&Jump[P]", Side = "Left"})
 
 
 
@@ -58,7 +56,7 @@ function clip()
     Clip = true
 end
 
-Ect:AddToggle({
+MiscSection:AddToggle({
     Name = "Noclip",
     Default = false,
     Callback = function(value)
@@ -98,69 +96,60 @@ Ect:AddToggle({
 
 
 
-Ect:AddButton({
-    Name = "Dịch chuyển đến cổng",
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TeleportToPortal = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("TeleportToPortal")
+
+local locations = {
+    "Starter", "Jungle", "Desert", "Snow", "Sailor",
+    "Shibuya", "HollowIsland", "Boss", "Dungeon",
+    "Shinjuku", "Slime", "Academy", "Judgement",
+    "SoulDominion", "Ninja", "Lawless", "Tower"
+}
+
+local selectedLocation = nil
+local toggleObjects = {}
+
+-- Tạo toggles cho từng địa điểm
+for i, locationName in ipairs(locations) do
+    toggleObjects[i] = Tele:AddToggle({
+        Name = locationName,
+        Default = false,
+        Callback = function(state)
+            if state then
+                selectedLocation = locationName
+
+                -- Tắt tất cả toggle khác (chỉ cho phép 1 địa điểm được chọn)
+                for j, toggle in ipairs(toggleObjects) do
+                    if j ~= i then
+                        toggle:Set(false)
+                    end
+                end
+            else
+                -- Nếu người dùng tắt toggle đang được chọn thì xóa lựa chọn
+                if selectedLocation == locationName then
+                    selectedLocation = nil
+                end
+            end
+        end
+    })
+end
+
+-- Tạo button teleport
+Tele:AddButton({
+    Name = "Teleport",
     Callback = function()
-        local player = game:GetService("Players").LocalPlayer
-        local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
-
-        if not hrp then
+        if selectedLocation == nil then
+            print("Vui lòng chọn một địa điểm trước!")
             return
         end
 
-        -- Quét toàn workspace tìm Part có tên dạng "Portal_" gần nhất
-        local nearestPortal = nil
-        local nearestDistance = math.huge
-
-        local function ScanForPortal(parent)
-            for _, obj in ipairs(parent:GetChildren()) do
-                if obj:IsA("BasePart") and obj.Name:match("^Portal_") then
-                    local distance = (hrp.Position - obj.Position).Magnitude
-                    if distance < nearestDistance and distance <= 5000 then
-                        nearestDistance = distance
-                        nearestPortal = obj
-                    end
-                end
-                -- Đệ quy quét con
-                if #obj:GetChildren() > 0 then
-                    ScanForPortal(obj)
-                end
-            end
-        end
-
-        ScanForPortal(workspace)
-
-        if not nearestPortal then
-            warn("Không tìm thấy Portal nào trong phạm vi 5000 đơn vị!")
-            return
-        end
-
-        -- Teleport tới portal
-        hrp.CFrame = nearestPortal.CFrame + Vector3.new(0, 3, 0)
-
-        task.spawn(function()
-            while true do
-                task.wait(0.1)
-                if not hrp or not hrp.Parent then break end
-                local distance = (hrp.Position - nearestPortal.Position).Magnitude
-                if distance <= 5 then
-                    task.wait(0.5)
-                    local prompt = nearestPortal:FindFirstChildWhichIsA("ProximityPrompt")
-                        or nearestPortal.Parent:FindFirstChildWhichIsA("ProximityPrompt", true)
-                    if prompt then
-                        fireproximityprompt(prompt)
-                    else
-                        warn("Không tìm thấy ProximityPrompt!")
-                    end
-                    break
-                end
-            end
-        end)
+        print("Đang teleport đến:", selectedLocation)
+        TeleportToPortal:FireServer(selectedLocation)
     end
 })
 
 
-Ect:AddButton({
+MiscSection:AddButton({
     Name = "Fly",
     Default = false,
     Callback = function(state)
@@ -716,11 +705,11 @@ MiscSection:AddButton({
 	end
 })
 
-
 local HoverHeight = 8
-local MoveSpeed = 200 -- studs/giây, điều chỉnh tốc độ di chuyển tại đây
+local MoveSpeed = 200
 local Players = game:GetService("Players")
 local workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local player = Players.LocalPlayer
 local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 getgenv().AutoNPC = false
@@ -736,8 +725,60 @@ local BossList = {
     "SukunaBoss",
     "YujiBoss",
     "AlucardBoss",
---"YamatoBoss",
+    "YamatoBoss",
+    "StrongestShinobiBoss",
 }
+
+-- ===================== TELEPORT LOGIC =====================
+
+local TeleportToPortal = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("TeleportToPortal")
+
+local NPCLocationMap = {
+    ["AizenBoss"]            = "HollowIsland",
+    ["GojoBoss"]             = "Shibuya",
+    ["SukunaBoss"]           = "Shibuya",
+    ["YujiBoss"]             = "Shibuya",
+    ["JinwooBoss"]           = "Sailor",
+    ["AlucardBoss"]          = "Sailor",
+    ["YamatoBoss"]           = "Judgement",
+    ["StrongestShinobiBoss"] = "Ninja",
+    ["Hollow"]               = "HollowIsland",
+    ["Quincy"]               = "SoulDominion",
+    ["Ninja"]                = "Ninja",
+    ["Swordsman"]            = "Judgement",
+    ["AcademyTeacher"]       = "Academy",
+}
+
+local function GetLocationForNPC(npcName)
+    if NPCLocationMap[npcName] then
+        return NPCLocationMap[npcName]
+    end
+    for prefix, location in pairs(NPCLocationMap) do
+        if npcName:sub(1, #prefix) == prefix then
+            return location
+        end
+    end
+    return nil
+end
+
+local function GetLocationForFilter(filter)
+    filter = (filter or ""):lower():match("^%s*(.-)%s*$")
+    for prefix, location in pairs(NPCLocationMap) do
+        if filter:find(prefix:lower(), 1, true) or prefix:lower():find(filter, 1, true) then
+            return location
+        end
+    end
+    return nil
+end
+
+local function TeleportToLocation(location)
+    if not location then return end
+    print("Teleporting to:", location)
+    TeleportToPortal:FireServer(location)
+    task.wait(3)
+end
+
+-- ===================== FILTER HELPERS =====================
 
 local function IsAllBossMode()
     local filter = (getgenv().NPCFilter or ""):lower():match("^%s*(.-)%s*$")
@@ -760,6 +801,8 @@ local function GetFilterList()
     return list
 end
 
+-- ===================== CHARACTER =====================
+
 local function UpdateHRP(char)
     task.wait(0.1)
     getgenv().PlayerDead = false
@@ -781,6 +824,8 @@ if player.Character then
     UpdateHRP(player.Character)
 end
 
+-- ===================== HOVER =====================
+
 local function EnableHover(rootPart)
     if not rootPart then return end
     if not rootPart:FindFirstChild("BodyPosition") then
@@ -799,6 +844,49 @@ local function DisableHover(rootPart)
     local bp = rootPart:FindFirstChild("BodyPosition")
     if bp then bp:Destroy() end
 end
+
+local function HoldHover()
+    if not hrp then return end
+    EnableHover(hrp)
+    local bp = hrp:FindFirstChild("BodyPosition")
+    if bp then
+        bp.Position = hrp.Position
+    end
+end
+
+local function MoveTowards(targetPos)
+    if not hrp then return end
+    local desiredPos = targetPos + Vector3.new(0, HoverHeight, 0)
+    local distance = (hrp.Position - desiredPos).Magnitude
+
+    if distance > 100 then
+        local direction = desiredPos - hrp.Position
+        local dt = 0.01
+        local step = math.min(MoveSpeed * dt, distance)
+        local nextPos = hrp.Position + direction.Unit * step
+        hrp.Velocity = Vector3.zero
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        if (targetPos - nextPos).Magnitude > 0.1 then
+            hrp.CFrame = CFrame.new(nextPos, targetPos)
+        else
+            hrp.CFrame = CFrame.new(nextPos)
+        end
+        local bp = hrp:FindFirstChild("BodyPosition")
+        if bp then bp.Position = nextPos end
+        task.wait(dt)
+    else
+        local bp = hrp:FindFirstChild("BodyPosition")
+        if bp then bp.Position = desiredPos end
+        if (targetPos - hrp.Position).Magnitude > 0.1 then
+            hrp.CFrame = CFrame.new(hrp.Position, targetPos)
+        end
+        hrp.Velocity = Vector3.zero
+        hrp.AssemblyLinearVelocity = Vector3.zero
+        task.wait(0.01)
+    end
+end
+
+-- ===================== NPC SEARCH =====================
 
 local function FuzzyScore(query, name)
     query = query:lower()
@@ -827,10 +915,12 @@ local function GetNearestNPCByFilter(filter, maxDistance)
 
     for _, npc in ipairs(npcsFolder:GetChildren()) do
         local h = npc:FindFirstChild("Humanoid")
-        local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
-        if not (h and h.Health > 0 and primaryPart) then continue end
+        if not (h and h.Health > 0) then continue end
 
-        local distance = (hrp.Position - primaryPart.Position).Magnitude
+        local ok, pos = pcall(function() return npc:GetPivot().Position end)
+        if not ok then continue end
+
+        local distance = (hrp.Position - pos).Magnitude
         if distance > maxDistance then continue end
 
         if filter and filter ~= "" then
@@ -862,46 +952,7 @@ local function GetNearestNPC(maxDistance)
     return nil, nil
 end
 
-local function HoldHover()
-    if not hrp then return end
-    EnableHover(hrp)
-    local bp = hrp:FindFirstChild("BodyPosition")
-    if bp then
-        bp.Position = hrp.Position
-    end
-end
-
-local function MoveTowards(targetPos)
-    if not hrp then return end
-    local desiredPos = targetPos + Vector3.new(0, HoverHeight, 0)
-    local distance = (hrp.Position - desiredPos).Magnitude
-
-    if distance > 100 then
-        local direction = desiredPos - hrp.Position
-        local dt = 0.01 -- dt cố định thay vì dùng giá trị trả về từ task.wait
-        local step = math.min(MoveSpeed * dt, distance)
-        local nextPos = hrp.Position + direction.Unit * step
-        hrp.Velocity = Vector3.zero
-        hrp.AssemblyLinearVelocity = Vector3.zero
-        if (targetPos - nextPos).Magnitude > 0.1 then
-            hrp.CFrame = CFrame.new(nextPos, targetPos)
-        else
-            hrp.CFrame = CFrame.new(nextPos)
-        end
-        local bp = hrp:FindFirstChild("BodyPosition")
-        if bp then bp.Position = nextPos end
-        task.wait(dt)
-    else
-        local bp = hrp:FindFirstChild("BodyPosition")
-        if bp then bp.Position = desiredPos end
-        if (targetPos - hrp.Position).Magnitude > 0.1 then
-            hrp.CFrame = CFrame.new(hrp.Position, targetPos)
-        end
-        hrp.Velocity = Vector3.zero
-        hrp.AssemblyLinearVelocity = Vector3.zero
-        task.wait(0.01)
-    end
-end
+-- ===================== COMBAT =====================
 
 local function TryEquipCombat()
     if getgenv().CombatEquipped then return end
@@ -944,16 +995,16 @@ local function StartAttackLoop()
             if not npcsFolder then continue end
             for _, npc in ipairs(npcsFolder:GetChildren()) do
                 local h = npc:FindFirstChild("Humanoid")
-                local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
-                if h and h.Health > 0 and primaryPart then
-                    if (hrp.Position - primaryPart.Position).Magnitude <= 50 then
-                        game:GetService("ReplicatedStorage")
-                            :WaitForChild("CombatSystem")
-                            :WaitForChild("Remotes")
-                            :WaitForChild("RequestHit")
-                            :FireServer()
-                        break
-                    end
+                if not (h and h.Health > 0) then continue end
+                local ok, pos = pcall(function() return npc:GetPivot().Position end)
+                if not ok then continue end
+                if (hrp.Position - pos).Magnitude <= 50 then
+                    ReplicatedStorage
+                        :WaitForChild("CombatSystem")
+                        :WaitForChild("Remotes")
+                        :WaitForChild("RequestHit")
+                        :FireServer()
+                    break
                 end
             end
         end
@@ -994,7 +1045,8 @@ local function HoverOnNPC_AllBoss()
             if npc and npc.ClassName == "Model" and hrp then
                 local h = npc:FindFirstChildWhichIsA("Humanoid", true)
                 if h and h.Health > 0 then
-                    local pos = npc:GetPivot().Position
+                    local ok, pos = pcall(function() return npc:GetPivot().Position end)
+                    if not ok then continue end
                     local d = (hrp.Position - pos).Magnitude
                     if d < bestDist then
                         bestDist = d
@@ -1007,19 +1059,19 @@ local function HoverOnNPC_AllBoss()
 
         if not target then
             local mobFilter = GetAllBossMobFilter()
-            local npcsFolder2 = workspace:FindFirstChild("NPCs")
             local mobTarget = nil
             local mobBestDist = math.huge
 
-            if npcsFolder2 and hrp and mobFilter ~= "" then
-                for _, npc in ipairs(npcsFolder2:GetChildren()) do
+            if hrp and mobFilter ~= "" then
+                for _, npc in ipairs(npcsFolder:GetChildren()) do
                     if npc.ClassName == "Model" then
                         local h = npc:FindFirstChildWhichIsA("Humanoid", true)
                         if h and h.Health > 0 then
                             local displayName = h.DisplayName ~= "" and h.DisplayName or npc.Name
                             local score = FuzzyScore(mobFilter, displayName)
                             if score >= 0 then
-                                local pos = npc:GetPivot().Position
+                                local ok, pos = pcall(function() return npc:GetPivot().Position end)
+                                if not ok then continue end
                                 local d = (hrp.Position - pos).Magnitude
                                 if d < mobBestDist then
                                     mobBestDist = d
@@ -1032,9 +1084,18 @@ local function HoverOnNPC_AllBoss()
             end
 
             if mobTarget then
+                -- Teleport nếu mob quá xa
+                if hrp and mobBestDist > 2000 then
+                    local location = GetLocationForFilter(mobFilter)
+                    if location then
+                        TeleportToLocation(location)
+                    end
+                end
+
                 TryEquipCombat()
                 EnableHover(hrp)
                 local lastBossCheck = 0
+
                 while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
                     if not hrp then break end
 
@@ -1048,13 +1109,33 @@ local function HoverOnNPC_AllBoss()
                     if not mobH or mobH.Health <= 0 then break end
                     if not mobTarget.Parent then break end
 
-                    MoveTowards(mobTarget:GetPivot().Position)
+                    local ok, pos = pcall(function() return mobTarget:GetPivot().Position end)
+                    if not ok then break end
+                    MoveTowards(pos)
+                end
+            elseif mobFilter ~= "" then
+                -- Mob filter có giá trị nhưng không tìm thấy NPC (chưa load) -> teleport
+                local location = GetLocationForFilter(mobFilter)
+                if location then
+                    print("AllBoss mob không tìm thấy, teleport tới:", location)
+                    TeleportToLocation(location)
+                else
+                    HoldHover()
+                    task.wait(0.5)
                 end
             else
                 HoldHover()
                 task.wait(0.5)
             end
             continue
+        end
+
+        -- Teleport nếu boss quá xa
+        if hrp and bestDist > 2000 then
+            local location = GetLocationForNPC(target.Name)
+            if location then
+                TeleportToLocation(location)
+            end
         end
 
         TryEquipCombat()
@@ -1065,7 +1146,9 @@ local function HoverOnNPC_AllBoss()
             if not target.Parent then break end
             if not targetHumanoid or targetHumanoid.Health <= 0 then break end
 
-            MoveTowards(target:GetPivot().Position)
+            local ok, pos = pcall(function() return target:GetPivot().Position end)
+            if not ok then break end
+            MoveTowards(pos)
         end
 
         if not getgenv().AutoNPC or getgenv().PlayerDead or not IsAllBossMode() then
@@ -1095,25 +1178,47 @@ local function HoverOnNPC()
     local target, humanoid = GetNearestNPC()
 
     if not target then
+        if hasFilter then
+            -- NPC chưa load -> teleport tới địa điểm tương ứng với filter
+            local location = GetLocationForFilter(getgenv().NPCFilter)
+            if location and hrp then
+                print("Không tìm thấy NPC, teleport tới:", location)
+                TeleportToLocation(location)
+            else
+                HoldHover()
+            end
+        else
+            HoldHover()
+        end
+        return
+    end
+
+    local ok, targetPos = pcall(function() return target:GetPivot().Position end)
+    if not ok then
         HoldHover()
         return
     end
 
-    local primaryPart = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
-    if not primaryPart then
-        HoldHover()
-        return
+    -- Teleport nếu mục tiêu quá xa
+    if hrp and (hrp.Position - targetPos).Magnitude > 2000 then
+        local location = GetLocationForNPC(target.Name)
+        if not location and hasFilter then
+            location = GetLocationForFilter(getgenv().NPCFilter)
+        end
+        if location then
+            TeleportToLocation(location)
+        end
     end
 
     TryEquipCombat()
     EnableHover(hrp)
-    local bp = hrp:FindFirstChild("BodyPosition")
 
     while getgenv().AutoNPC and not getgenv().PlayerDead and humanoid and humanoid.Health > 0 do
         if not hrp then break end
-        primaryPart = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart")
-        if not primaryPart then break end
-        MoveTowards(primaryPart.Position)
+        if not target.Parent then break end
+        local okPos, pos = pcall(function() return target:GetPivot().Position end)
+        if not okPos then break end
+        MoveTowards(pos)
     end
 
     if not getgenv().AutoNPC or getgenv().PlayerDead then
@@ -1216,12 +1321,14 @@ Farm:AddToggle({
     end
 })
 
+
 getgenv().AutoSkill = false
 getgenv().UseZ = false
 getgenv().UseX = false
 getgenv().UseC = false
 getgenv().UseV = false
 getgenv().UseF = false
+getgenv().UseJ = false
 getgenv().UseH = false
 getgenv().SkillRange = getgenv().SkillRange or 50
 
@@ -1274,6 +1381,7 @@ task.spawn(function()
         if getgenv().UseC then table.insert(keys, Enum.KeyCode.C) end
         if getgenv().UseV then table.insert(keys, Enum.KeyCode.V) end
         if getgenv().UseF then table.insert(keys, Enum.KeyCode.F) end
+		if getgenv().UseJ then table.insert(keys, Enum.KeyCode.J) end
         if #keys == 0 then continue end
 
         for _, keyCode in ipairs(keys) do
@@ -1371,6 +1479,14 @@ AutoSkill:AddToggle({
     Default = false,
     Callback = function(value)
         getgenv().UseF = value
+    end
+})
+
+AutoSkill:AddToggle({
+    Name = "Skill J",
+    Default = false,
+    Callback = function(value)
+        getgenv().UseJ = value
     end
 })
 
