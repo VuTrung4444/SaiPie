@@ -629,6 +629,7 @@ MiscSection:AddButton({
     end
 })
 
+
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 local PLACE_ID = game.PlaceId
@@ -708,6 +709,7 @@ getgenv().NPCFilter = ""
 getgenv().PlayerDead = false
 getgenv().CombatEquipped = false
 getgenv().TargetIndex = 1
+local LastTeleportLocation = nil
 
 local BossList = {
     "AizenBoss",
@@ -792,6 +794,7 @@ local function UpdateHRP(char)
     getgenv().PlayerDead = false
     getgenv().CombatEquipped = false
     getgenv().TargetIndex = 1
+    LastTeleportLocation = nil
     hrp = char:WaitForChild("HumanoidRootPart")
 
     local humanoid = char:WaitForChild("Humanoid")
@@ -870,8 +873,23 @@ end
 
 -- ===================== TELEPORT =====================
 
-local function TeleportToLocation(location)
+local function TeleportToLocation(location, targetPos)
     if not location then return end
+
+    if LastTeleportLocation == location then
+        local tooFar = false
+        if hrp and targetPos then
+            tooFar = (hrp.Position - targetPos).Magnitude > 1000
+        end
+        if not tooFar then
+            HoldHover()
+            task.wait(0.5)
+            return
+        end
+    end
+
+    LastTeleportLocation = location
+
     if hrp then
         DisableHover(hrp)
         hrp.Velocity = Vector3.zero
@@ -1071,7 +1089,6 @@ local function HoverOnNPC_AllBoss()
                             local displayName = h.DisplayName ~= "" and h.DisplayName or npc.Name
                             local score = FuzzyScore(mobFilter, displayName)
                             if score >= 0 then
-                                -- Dùng GetPivot() thay vì primaryPart
                                 local okPivot, pivotPos = pcall(function() return npc:GetPivot().Position end)
                                 if not okPivot then continue end
                                 local d = (hrp.Position - pivotPos).Magnitude
@@ -1086,10 +1103,11 @@ local function HoverOnNPC_AllBoss()
             end
 
             if mobTarget then
-                if mobBestDist > 500 then
+                if mobBestDist > 1000 then
                     local location = GetLocationForFilter(mobFilter)
                     if location then
-                        TeleportToLocation(location)
+                        local okPivot, pivotPos = pcall(function() return mobTarget:GetPivot().Position end)
+                        TeleportToLocation(location, okPivot and pivotPos or nil)
                     end
                 else
                     TryEquipCombat()
@@ -1105,18 +1123,16 @@ local function HoverOnNPC_AllBoss()
                         local mobH = mobTarget:FindFirstChildWhichIsA("Humanoid", true)
                         if not mobH or mobH.Health <= 0 then break end
                         if not mobTarget.Parent then break end
-                        -- Dùng GetPivot() thay vì primaryPart
                         local okPivot, pivotPos = pcall(function() return mobTarget:GetPivot().Position end)
                         if not okPivot then break end
                         MoveTowards(pivotPos)
                     end
                 end
             else
-                -- Mob nil: teleport theo filter thay vì HoldHover
                 if mobFilter ~= "" then
                     local location = GetLocationForFilter(mobFilter)
                     if location then
-                        TeleportToLocation(location)
+                        TeleportToLocation(location, nil)
                     else
                         HoldHover()
                         task.wait(0.5)
@@ -1129,10 +1145,11 @@ local function HoverOnNPC_AllBoss()
             continue
         end
 
-        if bestDist > 500 then
+        if bestDist > 1000 then
             local location = GetLocationForNPC(target.Name)
             if location then
-                TeleportToLocation(location)
+                local ok, pos = pcall(function() return target:GetPivot().Position end)
+                TeleportToLocation(location, ok and pos or nil)
                 continue
             end
         end
@@ -1179,7 +1196,7 @@ local function HoverOnNPC()
         if hasFilter then
             local location = GetLocationForFilter(getgenv().NPCFilter)
             if location then
-                TeleportToLocation(location)
+                TeleportToLocation(location, nil)
                 return
             end
         end
@@ -1195,13 +1212,13 @@ local function HoverOnNPC()
 
     local dist = (hrp.Position - targetPos).Magnitude
 
-    if dist > 500 then
+    if dist > 1000 then
         local location = GetLocationForNPC(target.Name)
         if not location and hasFilter then
             location = GetLocationForFilter(getgenv().NPCFilter)
         end
         if location then
-            TeleportToLocation(location)
+            TeleportToLocation(location, targetPos)
             return
         end
     end
@@ -1267,6 +1284,7 @@ Farm:AddToggle({
         if not value and hrp then
             DisableHover(hrp)
         end
+        LastTeleportLocation = nil
     end
 })
 
@@ -1277,6 +1295,7 @@ Farm:AddTextbox({
     Callback = function(value)
         getgenv().NPCFilter = value or ""
         getgenv().TargetIndex = 1
+        LastTeleportLocation = nil
     end
 })
 
@@ -1315,6 +1334,7 @@ Farm:AddToggle({
         getgenv().UseKey3 = value
     end
 })
+
 
 getgenv().AutoSkill = false
 getgenv().UseZ = false
