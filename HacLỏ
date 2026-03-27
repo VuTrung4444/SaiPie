@@ -696,7 +696,6 @@ MiscSection:AddButton({
 	end
 })
 
-
 local HoverHeight = 8
 local MoveSpeed = 200
 local Players = game:GetService("Players")
@@ -844,7 +843,7 @@ local function MoveTowards(targetPos)
     local desiredPos = targetPos + Vector3.new(0, HoverHeight, 0)
     local distance = (hrp.Position - desiredPos).Magnitude
 
-    if distance > 100 then
+    if distance > 50 then
         local direction = desiredPos - hrp.Position
         local dt = 0.01
         local step = math.min(MoveSpeed * dt, distance)
@@ -936,10 +935,19 @@ local function GetNearestNPCByFilter(filter, maxDistance)
 
     for _, npc in ipairs(npcsFolder:GetChildren()) do
         local h = npc:FindFirstChild("Humanoid")
-        local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
-        if not (h and h.Health > 0 and primaryPart) then continue end
+        if not (h and h.Health > 0) then continue end
 
-        local distance = (hrp.Position - primaryPart.Position).Magnitude
+        local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
+        local npcPos
+        if primaryPart then
+            npcPos = primaryPart.Position
+        else
+            local ok, pivot = pcall(function() return npc:GetPivot().Position end)
+            if not ok then continue end
+            npcPos = pivot
+        end
+
+        local distance = (hrp.Position - npcPos).Magnitude
         if distance > maxDistance then continue end
 
         if filter and filter ~= "" then
@@ -1108,6 +1116,20 @@ local function HoverOnNPC_AllBoss()
                     if location then
                         local okPivot, pivotPos = pcall(function() return mobTarget:GetPivot().Position end)
                         TeleportToLocation(location, okPivot and pivotPos or nil)
+                    else
+                        -- Không có location → di chuyển trực tiếp
+                        TryEquipCombat()
+                        EnableHover(hrp)
+                        while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
+                            if not hrp then break end
+                            if HasAliveBoss() then break end
+                            local mobH = mobTarget:FindFirstChildWhichIsA("Humanoid", true)
+                            if not mobH or mobH.Health <= 0 then break end
+                            if not mobTarget.Parent then break end
+                            local okPivot, pivotPos = pcall(function() return mobTarget:GetPivot().Position end)
+                            if not okPivot then break end
+                            MoveTowards(pivotPos)
+                        end
                     end
                 else
                     TryEquipCombat()
@@ -1150,6 +1172,19 @@ local function HoverOnNPC_AllBoss()
             if location then
                 local ok, pos = pcall(function() return target:GetPivot().Position end)
                 TeleportToLocation(location, ok and pos or nil)
+                continue
+            else
+                -- Không có location → di chuyển trực tiếp
+                TryEquipCombat()
+                EnableHover(hrp)
+                while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
+                    if not hrp then break end
+                    if not target.Parent then break end
+                    if not targetHumanoid or targetHumanoid.Health <= 0 then break end
+                    local ok, pos = pcall(function() return target:GetPivot().Position end)
+                    if not ok then break end
+                    MoveTowards(pos)
+                end
                 continue
             end
         end
@@ -1219,6 +1254,19 @@ local function HoverOnNPC()
         end
         if location then
             TeleportToLocation(location, targetPos)
+            return
+        else
+            -- Không có location → di chuyển trực tiếp
+            TryEquipCombat()
+            EnableHover(hrp)
+            while getgenv().AutoNPC and not getgenv().PlayerDead
+                  and humanoid and humanoid.Health > 0 do
+                if not hrp then break end
+                if not target.Parent then break end
+                local okPos, pos = pcall(function() return target:GetPivot().Position end)
+                if not okPos then break end
+                MoveTowards(pos)
+            end
             return
         end
     end
