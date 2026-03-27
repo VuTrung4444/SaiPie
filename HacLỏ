@@ -629,65 +629,55 @@ MiscSection:AddButton({
     end
 })
 
-
 local TeleportService = game:GetService("TeleportService")
 local Players = game:GetService("Players")
-local HttpService = game:GetService("HttpService")
 local PLACE_ID = game.PlaceId
-local currentJobId = game.JobId
-
-local function GetServers(cursor)
-    local url = "https://games.roblox.com/v1/games/" .. PLACE_ID .. "/servers/Public?limit=100&sortOrder=Asc"
-    if cursor and cursor ~= "" then
-        url = url .. "&cursor=" .. cursor
-    end
-    local ok, result = pcall(function()
-        return request({ Url = url, Method = "GET" })
-    end)
-    if not ok or not result or not result.Body then return nil end
-    local ok2, data = pcall(function()
-        return HttpService:JSONDecode(result.Body)
-    end)
-    if not ok2 or not data then return nil end
-    return data
-end
 
 MiscSection:AddButton({
     Name = "Hop Server",
     Callback = function()
-        local allCandidates = {}
+        local success, servers = pcall(function()
+            return TeleportService:GetTeleportSetting("servers")
+        end)
+
+        -- Lấy danh sách server hiện có qua teleport options
+        local HttpService = game:GetService("HttpService")
+        local currentJobId = game.JobId
+
+        local foundServer = false
         local cursor = ""
 
         repeat
-            local data = GetServers(cursor)
-            if not data or not data.data then break end
+            local ok, result = pcall(function()
+                return Players:GetServerList(PLACE_ID, cursor)
+            end)
+            if not ok then break end
 
-            for _, server in ipairs(data.data) do
-                if server.id ~= currentJobId
-                    and type(server.playing) == "number"
-                    and type(server.maxPlayers) == "number"
-                    and server.playing <= server.maxPlayers - 2
-                    and server.playing > 0 then
-                    table.insert(allCandidates, server)
+            -- Lọc bỏ server hiện tại
+            local candidates = {}
+            for _, server in ipairs(result.Servers) do
+                if server.Id ~= currentJobId and server.Playing < server.MaxPlayers then
+                    table.insert(candidates, server)
                 end
             end
 
-            cursor = data.nextPageCursor
+            if #candidates > 0 then
+                -- Chọn ngẫu nhiên 1 server trong danh sách
+                local chosen = candidates[math.random(1, #candidates)]
+                foundServer = true
+                TeleportService:TeleportToPlaceInstance(PLACE_ID, chosen.Id, Players.LocalPlayer)
+                break
+            end
+
+            cursor = result.NextPageCursor
         until not cursor or cursor == ""
 
-        if #allCandidates > 0 then
-            for i = #allCandidates, 2, -1 do
-                local j = math.random(1, i)
-                allCandidates[i], allCandidates[j] = allCandidates[j], allCandidates[i]
-            end
-            local chosen = allCandidates[1]
-            TeleportService:TeleportToPlaceInstance(PLACE_ID, chosen.id, Players.LocalPlayer)
-        else
+        -- Không tìm thấy server nào khác → rejoin bình thường
+        if not foundServer then
             TeleportService:Teleport(PLACE_ID, Players.LocalPlayer)
         end
     end
 })
-
 
 
 MiscSection:AddButton({
@@ -727,6 +717,7 @@ local BossList = {
     "YujiBoss",
     "AlucardBoss",
     "YamatoBoss",
+    "StrongestShinobiBoss"
 }
 
 -- ===================== TELEPORT LOGIC =====================
@@ -1080,9 +1071,10 @@ local function HoverOnNPC_AllBoss()
                             local displayName = h.DisplayName ~= "" and h.DisplayName or npc.Name
                             local score = FuzzyScore(mobFilter, displayName)
                             if score >= 0 then
-                                local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
-                                if not primaryPart then continue end
-                                local d = (hrp.Position - primaryPart.Position).Magnitude
+                                -- Dùng GetPivot() thay vì primaryPart
+                                local okPivot, pivotPos = pcall(function() return npc:GetPivot().Position end)
+                                if not okPivot then continue end
+                                local d = (hrp.Position - pivotPos).Magnitude
                                 if d < mobBestDist then
                                     mobBestDist = d
                                     mobTarget = npc
@@ -1113,14 +1105,26 @@ local function HoverOnNPC_AllBoss()
                         local mobH = mobTarget:FindFirstChildWhichIsA("Humanoid", true)
                         if not mobH or mobH.Health <= 0 then break end
                         if not mobTarget.Parent then break end
-                        local primaryPart = mobTarget.PrimaryPart or mobTarget:FindFirstChild("HumanoidRootPart")
-                        if not primaryPart then break end
-                        MoveTowards(primaryPart.Position)
+                        -- Dùng GetPivot() thay vì primaryPart
+                        local okPivot, pivotPos = pcall(function() return mobTarget:GetPivot().Position end)
+                        if not okPivot then break end
+                        MoveTowards(pivotPos)
                     end
                 end
             else
-                HoldHover()
-                task.wait(0.5)
+                -- Mob nil: teleport theo filter thay vì HoldHover
+                if mobFilter ~= "" then
+                    local location = GetLocationForFilter(mobFilter)
+                    if location then
+                        TeleportToLocation(location)
+                    else
+                        HoldHover()
+                        task.wait(0.5)
+                    end
+                else
+                    HoldHover()
+                    task.wait(0.5)
+                end
             end
             continue
         end
@@ -1172,7 +1176,6 @@ local function HoverOnNPC()
     local target, humanoid = GetNearestNPC()
 
     if not target then
-        -- Không tìm được target: nếu có filter thì thử teleport tới khu vực
         if hasFilter then
             local location = GetLocationForFilter(getgenv().NPCFilter)
             if location then
@@ -1184,7 +1187,6 @@ local function HoverOnNPC()
         return
     end
 
-    -- Kiểm tra pivot của mục tiêu để tính khoảng cách
     local ok, targetPos = pcall(function() return target:GetPivot().Position end)
     if not ok then
         HoldHover()
@@ -1200,7 +1202,7 @@ local function HoverOnNPC()
         end
         if location then
             TeleportToLocation(location)
-            return  -- return để vòng lặp chính gọi lại HoverOnNPC sau khi teleport xong
+            return
         end
     end
 
