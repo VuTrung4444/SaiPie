@@ -696,6 +696,7 @@ MiscSection:AddButton({
 	end
 })
 
+
 local HoverHeight = 8
 local MoveSpeed = 200
 local Players = game:GetService("Players")
@@ -711,14 +712,8 @@ getgenv().TargetIndex = 1
 local LastTeleportLocation = nil
 
 local BossList = {
-    "AizenBoss",
-    "GojoBoss",
-    "JinwooBoss",
-    "SukunaBoss",
-    "YujiBoss",
-    "AlucardBoss",
-    "YamatoBoss",
-    "StrongestShinobiBoss"
+    "AizenBoss", "GojoBoss", "JinwooBoss", "SukunaBoss",
+    "YujiBoss", "AlucardBoss", "YamatoBoss", "StrongestShinobiBoss"
 }
 
 -- ===================== TELEPORT LOGIC =====================
@@ -730,7 +725,7 @@ local NPCLocationMap = {
     ["GojoBoss"]             = "Shibuya",
     ["SukunaBoss"]           = "Shibuya",
     ["YujiBoss"]             = "Shibuya",
-	["Sorcerer"]             = "Shibuya",
+    ["Sorcerer"]             = "Shibuya",
     ["JinwooBoss"]           = "Sailor",
     ["AlucardBoss"]          = "Sailor",
     ["YamatoBoss"]           = "Judgement",
@@ -740,25 +735,20 @@ local NPCLocationMap = {
     ["Ninja"]                = "Ninja",
     ["Swordsman"]            = "Judgement",
     ["AcademyTeacher"]       = "Academy",
-	["Slime"]         		 = "Slime",
-	["SaberAlterBoss"]       = "Boss",
-	["BlessedMaidenBoss"]    = "Boss",
-	["GilgameshBoss"]    	 = "Boss",
-	["IchigoBoss"]    	 	 = "Boss",
-	["QinShiBoss"]    	 	 = "Boss",
-	["SaberBoss"]    	 	 = "Boss",
-	["Swordsman"]         	 = "Judgement",
-	["ArenaFighter"]         = "Lawless",
+    ["Slime"]                = "Slime",
+    ["SaberAlterBoss"]       = "Boss",
+    ["BlessedMaidenBoss"]    = "Boss",
+    ["GilgameshBoss"]        = "Boss",
+    ["IchigoBoss"]           = "Boss",
+    ["QinShiBoss"]           = "Boss",
+    ["SaberBoss"]            = "Boss",
+    ["ArenaFighter"]         = "Lawless",
 }
 
 local function GetLocationForNPC(npcName)
-    if NPCLocationMap[npcName] then
-        return NPCLocationMap[npcName]
-    end
+    if NPCLocationMap[npcName] then return NPCLocationMap[npcName] end
     for prefix, location in pairs(NPCLocationMap) do
-        if npcName:sub(1, #prefix) == prefix then
-            return location
-        end
+        if npcName:sub(1, #prefix) == prefix then return location end
     end
     return nil
 end
@@ -815,10 +805,7 @@ local function UpdateHRP(char)
     end)
 end
 player.CharacterAdded:Connect(UpdateHRP)
-
-if player.Character then
-    UpdateHRP(player.Character)
-end
+if player.Character then UpdateHRP(player.Character) end
 
 -- ===================== HOVER =====================
 
@@ -977,19 +964,15 @@ end
 
 local function GetNearestNPC()
     local list = GetFilterList()
-    if #list == 0 then
-        return GetNearestNPCByFilter("", 500)
-    end
+    if #list == 0 then return GetNearestNPCByFilter("", 500) end
     for _, filter in ipairs(list) do
         local target, humanoid = GetNearestNPCByFilter(filter, math.huge)
-        if target then
-            return target, humanoid
-        end
+        if target then return target, humanoid end
     end
     return nil, nil
 end
 
--- ===================== COMBAT =====================
+-- ===================== COMBAT (chỉ giữ TryEquipCombat) =====================
 
 local function TryEquipCombat()
     if getgenv().CombatEquipped then return end
@@ -1023,31 +1006,6 @@ local function TryEquipCombat()
     getgenv().CombatEquipped = true
 end
 
-local function StartAttackLoop()
-    task.spawn(function()
-        while true do
-            task.wait(0.5)
-            if not getgenv().AutoNPC or getgenv().PlayerDead or not hrp then continue end
-            local npcsFolder = workspace:FindFirstChild("NPCs")
-            if not npcsFolder then continue end
-            for _, npc in ipairs(npcsFolder:GetChildren()) do
-                local h = npc:FindFirstChild("Humanoid")
-                local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
-                if h and h.Health > 0 and primaryPart then
-                    if (hrp.Position - primaryPart.Position).Magnitude <= 50 then
-                        game:GetService("ReplicatedStorage")
-                            :WaitForChild("CombatSystem")
-                            :WaitForChild("Remotes")
-                            :WaitForChild("RequestHit")
-                            :FireServer()
-                        break
-                    end
-                end
-            end
-        end
-    end)
-end
-
 -- ===================== ALLBOSS LOGIC =====================
 
 local function HasAliveBoss()
@@ -1057,9 +1015,7 @@ local function HasAliveBoss()
         local npc = npcsFolder:FindFirstChild(bossName)
         if npc and npc.ClassName == "Model" then
             local h = npc:FindFirstChildWhichIsA("Humanoid", true)
-            if h and h.Health > 0 then
-                return true
-            end
+            if h and h.Health > 0 then return true end
         end
     end
     return false
@@ -1232,11 +1188,9 @@ local function HoverOnNPC()
 
     local list = GetFilterList()
     local hasFilter = #list > 0
-
     local target, humanoid = GetNearestNPC()
 
     if not target then
-        -- Không có filter hoặc không tìm thấy mục tiêu: chỉ đứng yên, không teleport
         HoldHover()
         return
     end
@@ -1251,7 +1205,6 @@ local function HoverOnNPC()
 
     if dist > 1000 then
         if hasFilter then
-            -- Chỉ teleport khi có filter
             local location = GetLocationForNPC(target.Name)
             if not location then
                 location = GetLocationForFilter(getgenv().NPCFilter)
@@ -1273,7 +1226,6 @@ local function HoverOnNPC()
                 return
             end
         else
-            -- Không có filter: bỏ qua mục tiêu xa, đứng yên
             HoldHover()
             return
         end
@@ -1304,7 +1256,6 @@ local function HoverOnNPC()
             if newTarget then break end
         end
     else
-        -- Không có filter: chờ mục tiêu mới trong đúng 300 đơn vị
         HoldHover()
         while getgenv().AutoNPC and not getgenv().PlayerDead do
             task.wait(0.5)
@@ -1315,8 +1266,6 @@ local function HoverOnNPC()
 end
 
 -- ===================== MAIN TASK LOOP =====================
-
-StartAttackLoop()
 
 task.spawn(function()
     while true do
@@ -1367,9 +1316,7 @@ Farm:AddTextbox({
     Placeholder = "Nhập độ cao (mặc định: 8)",
     Callback = function(value)
         local num = tonumber(value)
-        if num then
-            HoverHeight = num
-        end
+        if num then HoverHeight = num end
     end
 })
 
@@ -1397,6 +1344,42 @@ Farm:AddToggle({
     end
 })
 
+local function StartAttackLoop()
+    task.spawn(function()
+        while true do
+            task.wait(0.5)
+            if not getgenv().AutoSkill or getgenv().PlayerDead or not hrp then continue end
+            local npcsFolder = workspace:FindFirstChild("NPCs")
+            if not npcsFolder then continue end
+            for _, npc in ipairs(npcsFolder:GetChildren()) do
+                local h = npc:FindFirstChild("Humanoid")
+                local primaryPart = npc.PrimaryPart or npc:FindFirstChild("HumanoidRootPart")
+                if h and h.Health > 0 and primaryPart then
+                    if (hrp.Position - primaryPart.Position).Magnitude <= 50 then
+                        game:GetService("ReplicatedStorage")
+                            :WaitForChild("CombatSystem")
+                            :WaitForChild("Remotes")
+                            :WaitForChild("RequestHit")
+                            :FireServer()
+                        break
+                    end
+                end
+            end
+        end
+    end)
+end
+
+StartAttackLoop()
+
+-- ===================== UI SKILL =====================
+
+AutoSkill:AddToggle({
+    Name = "Auto Attack",
+    Default = false,
+    Callback = function(value)
+        getgenv().AutoSkill = value
+    end
+})
 
 getgenv().AutoSkill = false
 getgenv().UseZ = false
