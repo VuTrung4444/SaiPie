@@ -978,7 +978,7 @@ end
 local function GetNearestNPC()
     local list = GetFilterList()
     if #list == 0 then
-        return GetNearestNPCByFilter("", 300)
+        return GetNearestNPCByFilter("", 500)
     end
     for _, filter in ipairs(list) do
         local target, humanoid = GetNearestNPCByFilter(filter, math.huge)
