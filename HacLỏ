@@ -730,6 +730,7 @@ local NPCLocationMap = {
     ["GojoBoss"]             = "Shibuya",
     ["SukunaBoss"]           = "Shibuya",
     ["YujiBoss"]             = "Shibuya",
+	["Sorcerer"]             = "Shibuya",
     ["JinwooBoss"]           = "Sailor",
     ["AlucardBoss"]          = "Sailor",
     ["YamatoBoss"]           = "Judgement",
@@ -739,6 +740,17 @@ local NPCLocationMap = {
     ["Ninja"]                = "Ninja",
     ["Swordsman"]            = "Judgement",
     ["AcademyTeacher"]       = "Academy",
+	["Slime"]         		 = "Slime",
+	["SaberAlterBoss"]       = "Boss",
+	["BlessedMaidenBoss"]    = "Boss",
+	["GilgameshBoss"]    	 = "Boss",
+	["IchigoBoss"]    	 	 = "Boss",
+	["QinShiBoss"]    	 	 = "Boss",
+	["SaberBoss"]    	 	 = "Boss",
+	["Swordsman"]         	 = "Judgement",
+	["ArenaFighter"]         = "Lawless",
+	
+
 }
 
 local function GetLocationForNPC(npcName)
