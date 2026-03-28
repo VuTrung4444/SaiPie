@@ -749,8 +749,6 @@ local NPCLocationMap = {
 	["SaberBoss"]    	 	 = "Boss",
 	["Swordsman"]         	 = "Judgement",
 	["ArenaFighter"]         = "Lawless",
-	
-
 }
 
 local function GetLocationForNPC(npcName)
@@ -1129,7 +1127,6 @@ local function HoverOnNPC_AllBoss()
                         local okPivot, pivotPos = pcall(function() return mobTarget:GetPivot().Position end)
                         TeleportToLocation(location, okPivot and pivotPos or nil)
                     else
-                        -- Không có location → di chuyển trực tiếp
                         TryEquipCombat()
                         EnableHover(hrp)
                         while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
@@ -1186,7 +1183,6 @@ local function HoverOnNPC_AllBoss()
                 TeleportToLocation(location, ok and pos or nil)
                 continue
             else
-                -- Không có location → di chuyển trực tiếp
                 TryEquipCombat()
                 EnableHover(hrp)
                 while getgenv().AutoNPC and not getgenv().PlayerDead and IsAllBossMode() do
@@ -1240,13 +1236,7 @@ local function HoverOnNPC()
     local target, humanoid = GetNearestNPC()
 
     if not target then
-        if hasFilter then
-            local location = GetLocationForFilter(getgenv().NPCFilter)
-            if location then
-                TeleportToLocation(location, nil)
-                return
-            end
-        end
+        -- Không có filter hoặc không tìm thấy mục tiêu: chỉ đứng yên, không teleport
         HoldHover()
         return
     end
@@ -1260,25 +1250,31 @@ local function HoverOnNPC()
     local dist = (hrp.Position - targetPos).Magnitude
 
     if dist > 1000 then
-        local location = GetLocationForNPC(target.Name)
-        if not location and hasFilter then
-            location = GetLocationForFilter(getgenv().NPCFilter)
-        end
-        if location then
-            TeleportToLocation(location, targetPos)
-            return
-        else
-            -- Không có location → di chuyển trực tiếp
-            TryEquipCombat()
-            EnableHover(hrp)
-            while getgenv().AutoNPC and not getgenv().PlayerDead
-                  and humanoid and humanoid.Health > 0 do
-                if not hrp then break end
-                if not target.Parent then break end
-                local okPos, pos = pcall(function() return target:GetPivot().Position end)
-                if not okPos then break end
-                MoveTowards(pos)
+        if hasFilter then
+            -- Chỉ teleport khi có filter
+            local location = GetLocationForNPC(target.Name)
+            if not location then
+                location = GetLocationForFilter(getgenv().NPCFilter)
             end
+            if location then
+                TeleportToLocation(location, targetPos)
+                return
+            else
+                TryEquipCombat()
+                EnableHover(hrp)
+                while getgenv().AutoNPC and not getgenv().PlayerDead
+                      and humanoid and humanoid.Health > 0 do
+                    if not hrp then break end
+                    if not target.Parent then break end
+                    local okPos, pos = pcall(function() return target:GetPivot().Position end)
+                    if not okPos then break end
+                    MoveTowards(pos)
+                end
+                return
+            end
+        else
+            -- Không có filter: bỏ qua mục tiêu xa, đứng yên
+            HoldHover()
             return
         end
     end
@@ -1308,7 +1304,13 @@ local function HoverOnNPC()
             if newTarget then break end
         end
     else
+        -- Không có filter: chờ mục tiêu mới trong đúng 300 đơn vị
         HoldHover()
+        while getgenv().AutoNPC and not getgenv().PlayerDead do
+            task.wait(0.5)
+            local newTarget, _ = GetNearestNPCByFilter("", 300)
+            if newTarget then break end
+        end
     end
 end
 
