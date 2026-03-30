@@ -979,29 +979,28 @@ local function TryEquipCombat()
 
     local char = player.Character
     local tool = char and char:FindFirstChildWhichIsA("Tool")
-    if tool then
-        getgenv().CombatEquipped = true
-        return
+
+    if not tool then
+        local VirtualInputManager = game:GetService("VirtualInputManager")
+        local keysToTry = {}
+        if getgenv().UseKey1 then table.insert(keysToTry, Enum.KeyCode.One) end
+        if getgenv().UseKey2 then table.insert(keysToTry, Enum.KeyCode.Two) end
+        if getgenv().UseKey3 then table.insert(keysToTry, Enum.KeyCode.Three) end
+
+        if #keysToTry == 0 then return end -- Không có vũ khí → không làm gì
+
+        for _, keyCode in ipairs(keysToTry) do
+            VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
+            task.wait(0.05)
+            VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
+            task.wait(0.3)
+        end
+
+        -- Chỉ bấm G sau khi đã gọi vũ khí
+        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
+        task.wait(0.2)
+        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
     end
-
-    local VirtualInputManager = game:GetService("VirtualInputManager")
-    local keysToTry = {}
-    if getgenv().UseKey1 then table.insert(keysToTry, Enum.KeyCode.One) end
-    if getgenv().UseKey2 then table.insert(keysToTry, Enum.KeyCode.Two) end
-    if getgenv().UseKey3 then table.insert(keysToTry, Enum.KeyCode.Three) end
-
-    if #keysToTry == 0 then return end
-
-    for _, keyCode in ipairs(keysToTry) do
-        VirtualInputManager:SendKeyEvent(true, keyCode, false, game)
-        task.wait(0.05)
-        VirtualInputManager:SendKeyEvent(false, keyCode, false, game)
-        task.wait(0.3)
-    end
-
-    VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.G, false, game)
-    task.wait(0.05)
-    VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.G, false, game)
 
     getgenv().CombatEquipped = true
 end
@@ -1343,6 +1342,7 @@ Farm:AddToggle({
         getgenv().UseKey3 = value
     end
 })
+
 
 local function StartAttackLoop()
     task.spawn(function()
